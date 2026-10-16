@@ -23,7 +23,9 @@ Prerequisites:
 import argparse
 import datetime
 import gc
+import json
 import os
+import sys
 import time
 import uuid
 
@@ -50,7 +52,8 @@ def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device):
     graphs = []
     loop = torch.arange(num_nodes, dtype=torch.long)
     for p in paths:
-        fname = os.path.join(graph_dir, f'{p}_top{topk}_split{split_seed}.npz')
+        stem = os.path.join(graph_dir, f'{p}_top{topk}_split{split_seed}')
+        fname = stem + '.npz'
         if not os.path.isfile(fname):
             raise SystemExit(f'missing {fname} -- run build_metapath_graphs.py first '
                              f'with the same --paths/--topk/--split-seed')
@@ -60,8 +63,53 @@ def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device):
         src = torch.cat([torch.from_numpy(adj.row.astype(np.int64)), loop]).to(device)
         dst = torch.cat([torch.from_numpy(adj.col.astype(np.int64)), loop]).to(device)
         graphs.append((src, dst))
-        print(f'  {p}: {src.numel()} edges (incl. self-loops)')
+        # provenance sidecar written by build_metapath_graphs.py (tie-break mode)
+        meta_file = stem + '.meta.json'
+        if os.path.isfile(meta_file):
+            with open(meta_file, encoding='utf-8') as f:
+                meta = json.load(f)
+            prov = f"tie-break {meta.get('tie_break')}"
+            if meta.get('tie_seed') is not None:
+                prov += f" (seed {meta['tie_seed']})"
+        else:
+            prov = ('WARNING: no .meta.json -- legacy graph built with the id tie-break '
+                    '(low-id products become hubs); rebuild with build_metapath_graphs.py')
+        print(f'  {p}: {src.numel()} edges (incl. self-loops); {prov}')
     return graphs
+
+
+# Wang et al., WWW-2019, Sec. 5.3: Adam, lr 0.005, L2 0.001, semantic attention
+# vector 128-d (already the model default), 8 heads, attention dropout 0.6, early
+# stopping with patience 100, and a 64-d final embedding (8 heads x 8). The paper
+# has no beta warmup, no temperature and no min-delta rule.
+PAPER_CONFIG = {
+    'lr': 0.005,
+    'weight_decay': 0.001,
+    'feat_drop': 0.6,
+    'attn_drop': 0.6,
+    'hidden': 64,
+    'num_heads': 8,
+    'patience': 100,
+    'min_delta': 0.0,
+    'beta_warmup': 0,
+    'semantic_tau': 1.0,
+}
+
+
+def apply_paper_config(args, argv):
+    """Overwrite PAPER_CONFIG keys on args unless the user passed that flag
+    explicitly on the command line (explicit flags always win)."""
+    explicit = {a.split('=')[0] for a in argv if a.startswith('--')}
+    applied = {}
+    for key, val in PAPER_CONFIG.items():
+        flag = '--' + key.replace('_', '-')
+        if flag in explicit:
+            continue
+        setattr(args, key, val)
+        applied[key] = val
+    print('--paper-config: ' + ', '.join(f'{k}={v}' for k, v in applied.items())
+          + (' (explicitly passed flags kept)' if len(applied) < len(PAPER_CONFIG) else ''))
+    return args
 
 
 def main(args):
@@ -303,10 +351,19 @@ def parse_args():
                          '0 restores the strict any-improvement-resets behavior')
     ap.add_argument('--batch-size', type=int, default=100000,
                     help='edges per BPR step (each step does one full-graph forward)')
+    ap.add_argument('--paper-config', action='store_true',
+                    help='use the hyperparameters of Wang et al. (WWW-2019) Sec. 5.3: lr 0.005, '
+                         'weight-decay 0.001, feat/attn dropout 0.6, hidden 64 (8 heads x 8), '
+                         'patience 100, min-delta 0, no beta warmup, tau 1. Any of these flags '
+                         'passed explicitly on the command line keeps its explicit value. '
+                         'Without this flag the defaults above are the repo\'s own tuning')
     ap.add_argument('--gpu', type=int, default=0)
     ap.add_argument('--cpu', action='store_true')
     ap.add_argument('--seed', type=int, default=1)
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.paper_config:
+        args = apply_paper_config(args, sys.argv[1:])
+    return args
 
 
 if __name__ == '__main__':

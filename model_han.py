@@ -3,11 +3,21 @@
 """
 HAN (Heterogeneous Graph Attention Network, WWW-2019) for link prediction.
 
-Faithful to the reference TF1 implementation in ../HAN (models/gat.py
-HeteGAT_multi): one GAT layer per meta-path neighbor graph (node-level attention),
-fused by semantic-level attention (paper eq. 7-9). The classification head is
-replaced by returning the fused embedding, exactly as the LMSPS models do for
+Node-level attention follows the reference TF1 implementation in ../HAN
+(models/gat.py HeteGAT_multi): one multi-head GAT layer per meta-path neighbor
+graph (paper eq. 1-5). Semantic-level attention follows the PAPER's eq. 7-9
+(a shared tanh MLP scores every node's per-path embedding, scores are averaged
+over all nodes, softmax over meta-paths, weighted sum). The classification head
+is replaced by returning the fused embedding, exactly as the LMSPS models do for
 --task link_prediction, so the same BPR / ranking-eval pipeline applies.
+
+Repo additions that are NOT in the paper and are OFF by default:
+  - SemanticAttention.tau (softmax temperature; 1.0 = paper),
+  - SemanticAttention.force_uniform (train_han.py --beta-warmup; 0 = paper).
+Other deliberate departures (pruned/symmetrized meta-path neighbor graphs, a
+separate user tower, the repo's default hidden/dropout/lr) are documented in
+README.md "Deviations from the paper"; train_han.py --paper-config restores the
+paper's Sec. 5.3 hyperparameters.
 
 Implemented in PURE PyTorch -- no dgl at runtime (the dgl wheel in this env is
 CPU-only). Two memory traps this file deliberately avoids at ~3M edges/graph:

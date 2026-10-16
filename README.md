@@ -21,7 +21,13 @@ Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse.
 
     # 1. materialize each meta-path as a product-product graph (train-split-safe).
     #    Output files are named per path, so builds for different arches coexist.
+    #    Top-k pruning breaks walk-count ties with a seeded RANDOM key by default
+    #    (--tie-break random, --tie-seed = split seed). Graphs built before this
+    #    option existed used the id tie-break (--tie-break id), which made low
+    #    product ids hubs -- rebuild them. Each .npz gets a .meta.json sidecar
+    #    recording the mode; train_han.py warns when the sidecar is missing.
     python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_han --topk 20 --split-seed 0
+    python check_graph_bias.py data/AMAZON/metapath_graphs      # per-id-decile degree audit
 
     # 2. HAN -- config of record. --beta-warmup 15 is REQUIRED: it freezes the
     #    semantic attention to uniform for the first 15 epochs so every per-path
@@ -30,6 +36,12 @@ Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse.
     python train_han.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
         --stage 150 --patience 10 --beta-warmup 15 --seed 1 \
         --save-emb output/AMAZON/han_emb_auto_s1.pt
+
+    # 2a. paper-faithful hyperparameters (Wang et al. 2019, Sec. 5.3): lr 0.005,
+    #     weight-decay 0.001, dropout 0.6, hidden 64 (8x8), patience 100, no
+    #     warmup / temperature. Explicit flags still override the preset.
+    python train_han.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
+        --paper-config --seed 1 --save-emb output/AMAZON/han_emb_auto_paper_s1.pt
 
     # 2b. baselines on the same split (thesis comparison rows)
     python train_metapath2vec.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
@@ -90,6 +102,38 @@ implicitly, so the ranking numbers compare ITEM encoders (the meta-path
 question) instead of user-representation capacity. Pass `--user-tower feats`
 for the original inductive hash-feature tower.
 
+## Deviations from the paper (Wang et al., WWW-2019)
+
+The HAN model itself (`model_han.py`) follows the paper: per-path multi-head
+node-level attention (eq. 1-5), semantic-level attention with node-averaged
+scores and a 128-d attention vector (eq. 7-9). The task adaptation and the
+pipeline around it differ; keep these in mind when reading results. A full
+review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
+
+- **Loss / head.** Cross-entropy classification (eq. 10) is replaced by BPR over
+  dot-product scores of (user, product) pairs; the paper explicitly allows a
+  task-specific loss.
+- **Meta-path neighbors are pruned.** The paper uses every meta-path based
+  neighbor (adjacency product). `build_metapath_graphs.py` keeps the top-20 per
+  row by walk count after every hop and symmetrizes. Ties are broken by a seeded
+  random key (`--tie-break random`); the previous id tie-break biased the graphs
+  toward low product ids (see `check_graph_bias.py`).
+- **Users bypass HAN.** Only products are encoded by HAN; users are a free
+  embedding table (or a linear tower over hash features). The paper would give
+  users their own type-specific projection and meta-paths.
+- **Semantic-attention extras.** `--semantic-tau` (temperature) and
+  `--beta-warmup` (frozen uniform beta) are repo additions; both are off by
+  default, but the config of record uses `--beta-warmup 15`.
+- **Hyperparameters.** Repo defaults are lr 1e-3, no weight decay, dropout 0.2,
+  hidden 512 (8 heads x 64), patience 20 with `--min-delta 5e-4`. The paper
+  (Sec. 5.3) uses lr 5e-3, L2 1e-3, dropout 0.6, 64-d embeddings, patience 100:
+  `--paper-config` applies those.
+- **Product features.** The HGB `node.dat` product features are 504-d binary and
+  very sparse (about a quarter of products have a single active bit, so many
+  products share an identical feature vector); the paper used bag-of-words
+  features. Node-level attention can only separate neighbors whose features
+  differ.
+
 ## Files
 
 | file | role |
@@ -97,9 +141,10 @@ for the original inductive hash-feature tower.
 | data_loader.py | HGB .dat parser (verbatim from the HGB benchmark) |
 | link_data.py | edge split + vectorized negative sampling |
 | han_utils.py | BPR loss, chunked ranking scorer, per-edge/per-user/stratified metrics, seeding |
-| build_metapath_graphs.py | sparse chain-multiply + top-k pruning per meta-path |
+| build_metapath_graphs.py | sparse chain-multiply + top-k pruning per meta-path (seeded random tie-break, .meta.json provenance) |
+| check_graph_bias.py | per-id-decile degree audit of built graphs (detects tie-break / hub bias) |
 | model_han.py | GAT-per-path + semantic attention (pure torch, custom SpMM backward, gradient checkpointing) |
-| train_han.py | training / beta warmup / early stopping / evaluation |
+| train_han.py | training / beta warmup / early stopping / evaluation; `--paper-config` for the paper's Sec. 5.3 hyperparameters |
 | train_metapath2vec.py | baseline: meta-path-guided walks + skip-gram (frozen-embedding eval) |
 | train_gat.py | baseline: homogeneous GAT on the raw union graph (NO meta-paths) |
 | random_paths.py | seeded random valid meta-paths (ablation baseline) |

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/save_chat_log.ps1",
+            "timeout": 60,
+            "async": true,
+            "statusMessage": "Saving chat log to chat/"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/save_chat_log.ps1",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

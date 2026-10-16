@@ -219,9 +219,11 @@ Once the list is accepted, this is what happens to it -- a new discovery repo do
 **not** need to implement any of this:
 
 1. `build_metapath_graphs.py` chain-multiplies the step matrices in row chunks,
-   prunes to `--topk 20` neighbors per row after each step, binarizes, strips
-   self-loops, symmetrizes, and writes
-   `data/AMAZON/metapath_graphs/<path>_top20_split0.npz`.
+   prunes to `--topk 20` neighbors per row after each step (walk-count ties are
+   broken by a seeded random key, `--tie-break random`; the legacy `id` mode
+   favored low product ids), binarizes, strips self-loops, symmetrizes, and writes
+   `data/AMAZON/metapath_graphs/<path>_top20_split0.npz` plus a
+   `<path>_top20_split0.meta.json` sidecar recording the tie-break mode.
 2. `train_han.py` loads one graph per path, appends self-loops, runs one GAT per
    path and fuses them with semantic attention, trains with BPR, and evaluates
    with 99 sampled negatives -> Precision/Recall/NDCG/Hit@K.
@@ -253,13 +255,23 @@ Run these before trusting a comparison:
    among 100 candidates). A value near 0.10 is a bug, not a weak method -- almost
    always a global-vs-local node-id mismatch, since eval edges are local per type.
 
-Reference numbers on AMAZON, split-seed 0, LMSPS's 5 paths:
+Reference numbers on AMAZON (per-edge Hit@10 / NDCG@10, 99 sampled negatives,
+`--user-tower embedding`, split-seed 1, run-seed 1; logs in `logs/Final 1..4`).
+These graphs were built with the legacy `--tie-break id`; numbers with the
+random tie-break are not yet available.
 
-| model | Hit@10 | NDCG@10 |
-|---|---|---|
-| LMSPS retrain | 0.5756 | 0.3591 |
-| HAN | 0.5610 | 0.3472 |
-| random | ~0.10 | -- |
+| model | paths | Hit@10 | NDCG@10 |
+|---|---|---|---|
+| HAN | LMSPS-discovered sets `amazon_lp_auto_1..16` (4 paths each) | 0.848 - 0.867 | 0.689 - 0.719 |
+| HAN | `amazon_lp_manual_1` = PP, PUP, PCP, PPP | 0.874 | 0.728 |
+| HAN | `amazon_lp_manual_5` = PPP, PPPP, PPUP, PUPP | 0.875 | 0.733 |
+| metapath2vec | `amazon_lp_auto_1..16` | 0.742 - 0.816 | 0.546 - 0.643 |
+| metapath2vec | `amazon_lp_manual_1` | 0.785 | -- |
+| random | any | ~0.10 | -- |
+
+(An older protocol -- `--user-tower feats`, split-seed 0 -- gave HAN 0.5610 /
+0.3472 and the LMSPS retrain 0.5756 / 0.3591; those are not comparable to the
+rows above.)
 
 A new discovery method is doing its job if HAN trained on *its* paths lands in
 the same neighborhood; the interesting result is which paths it finds and how

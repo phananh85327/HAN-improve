@@ -20,16 +20,30 @@ Scale rule: a path like PUP has sum-over-users(degree^2) potential edges -- heav
 users would blow this into hundreds of millions. The chain is therefore multiplied
 in row chunks with per-row top-k pruning (by walk count) after every step, then
 symmetrized (palindromic paths are symmetric pre-pruning; pruning breaks that).
+NOTE: this is a deviation from the HAN paper, which uses ALL meta-path based
+neighbors (the full adjacency product, Sec. 3 Def. 3.3); top-k is a scaling choice.
+
+Tie-break rule: walk-count matrices are full of ties (every PP entry is 1.0, most
+PUP/PCP counts are 1-2), so WHICH tied neighbors survive top-k matters. The original
+implementation broke ties by ascending column index, which made the lowest product
+ids win in every row; after symmetrization those ids became hubs (measured on the
+split-0 manual graphs: the lowest-id tenth of products had mean degree 87 in PUP and
+69 in PCP vs 24-42 for every other tenth). Default is now --tie-break random with a
+fixed --tie-seed (reproducible, id-neutral); --tie-break id keeps the old behavior
+for comparison. Each .npz gets a .meta.json sidecar recording the mode so
+train_han.py can warn when it loads a legacy graph.
 
 Usage (from han-recsys/):
     python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_han \
         --topk 20 --split-seed 0 --target-relation "U,P"
 
 Output: data/<dataset>/metapath_graphs/<path>_top<k>_split<seed>.npz (scipy CSR,
-binary, no self-loops -- train_han.py adds self-loops when building DGL graphs).
+binary, no self-loops -- train_han.py adds self-loops when building DGL graphs)
+plus <same stem>.meta.json (tie_break, tie_seed, topk, split_seed, nnz, isolated).
 """
 
 import argparse
+import json
 import os
 
 import numpy as np
@@ -74,21 +88,28 @@ def build_base_matrices(dl, dataset, link_split):
     return {'PP': PP, 'CC': CC, 'PC': PC, 'CP': CP, 'UP': UP, 'PU': PU}
 
 
-def topk_per_row(mat, k):
+def topk_per_row(mat, k, rng=None):
     """Keep the k largest-valued entries per row of a CSR matrix.
 
-    Deterministic: ties are broken by ascending column index. Walk-count
-    matrices are full of ties (a binary step like PP ties every entry at 1.0),
-    and np.argpartition breaks them by memory layout -- the kept neighbor set
-    would then silently change across scipy versions or re-runs."""
+    Primary key is always the value (walk count), descending. Ties:
+      rng is None -> ascending column index (legacy --tie-break id). Deterministic,
+                     but systematically favors low node ids: with mostly-tied walk
+                     counts the same low-id columns survive in every row, and
+                     symmetrization then turns them into hubs.
+      rng given   -> a uniform random key drawn from rng (--tie-break random).
+                     Reproducible for a fixed seed because rows are visited in a
+                     fixed order, and id-neutral.
+    np.argpartition is avoided in both modes: it breaks ties by memory layout, so
+    the kept set would silently change across scipy versions or re-runs."""
     mat = mat.tocsr()
     indptr, indices, data = mat.indptr, mat.indices, mat.data
+    tie_key = indices if rng is None else rng.random(len(data))
     keep_idx = []
     for i in range(mat.shape[0]):
         s, e = indptr[i], indptr[i + 1]
         if e - s > k:
-            # primary key: value descending; tie-break: column ascending
-            sel = np.lexsort((indices[s:e], -data[s:e]))[:k] + s
+            # primary key: value descending; tie-break: tie_key ascending
+            sel = np.lexsort((tie_key[s:e], -data[s:e]))[:k] + s
             keep_idx.append(sel)
         elif e > s:
             keep_idx.append(np.arange(s, e))
@@ -100,9 +121,10 @@ def topk_per_row(mat, k):
     return sp.csr_matrix((data[keep], (row_ids, indices[keep])), shape=mat.shape)
 
 
-def materialize_path(path, base, topk, chunk_rows=4096):
+def materialize_path(path, base, topk, chunk_rows=4096, rng=None):
     """Walk-count matrix for `path` (e.g. 'PUP'): chain-multiply the step matrices
-    in row chunks, pruning to top-k per row after every step to bound memory."""
+    in row chunks, pruning to top-k per row after every step to bound memory.
+    rng: numpy Generator for random tie-breaking in topk_per_row (None = by id)."""
     steps = [path[i] + path[i + 1] for i in range(len(path) - 1)]
     for s in steps:
         if s not in base:
@@ -116,8 +138,8 @@ def materialize_path(path, base, topk, chunk_rows=4096):
         m = first[start:start + chunk_rows]
         for s in steps[1:]:
             m = (m @ base[s]).tocsr()
-            m = topk_per_row(m, topk)
-        chunks.append(topk_per_row(m, topk))
+            m = topk_per_row(m, topk, rng)
+        chunks.append(topk_per_row(m, topk, rng))
     out = sp.vstack(chunks).tocsr()
 
     # binarize, strip self-loops, symmetrize (train_han adds self-loops itself)
@@ -146,7 +168,16 @@ def main():
     ap.add_argument('--split-seed', type=int, default=0,
                     help='MUST match the --split-seed used for search/retrain')
     ap.add_argument('--num-neg-eval', type=int, default=99)
+    ap.add_argument('--tie-break', type=str, default='random', choices=['random', 'id'],
+                    help='how top-k pruning resolves equal walk counts. "random": seeded '
+                         'uniform key (id-neutral, reproducible). "id": legacy ascending '
+                         'column index -- biased, low product ids become hubs after '
+                         'symmetrization; kept only for comparison with old graphs')
+    ap.add_argument('--tie-seed', type=int, default=None,
+                    help='seed for --tie-break random (default: same as --split-seed)')
     args = ap.parse_args()
+    if args.tie_seed is None:
+        args.tie_seed = args.split_seed
 
     if args.paths:
         paths = [p.strip() for p in args.paths.split(',') if p.strip()]
@@ -175,11 +206,22 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     for p in paths:
-        print(f'Materializing {p} (topk {args.topk}) ...')
-        adj = materialize_path(p, base, args.topk)
+        print(f'Materializing {p} (topk {args.topk}, tie-break {args.tie_break}) ...')
+        # one generator per path, re-seeded from the same seed: a path's graph does
+        # not depend on which other paths were built in the same invocation
+        rng = (np.random.default_rng(args.tie_seed) if args.tie_break == 'random'
+               else None)
+        adj = materialize_path(p, base, args.topk, rng=rng)
         isolated = int((np.diff(adj.indptr) == 0).sum())
-        fname = os.path.join(out_dir, f'{p}_top{args.topk}_split{args.split_seed}.npz')
+        stem = os.path.join(out_dir, f'{p}_top{args.topk}_split{args.split_seed}')
+        fname = stem + '.npz'
         sp.save_npz(fname, adj)
+        meta = {'path': p, 'topk': args.topk, 'split_seed': args.split_seed,
+                'tie_break': args.tie_break,
+                'tie_seed': args.tie_seed if args.tie_break == 'random' else None,
+                'num_nodes': int(adj.shape[0]), 'nnz': int(adj.nnz), 'isolated': isolated}
+        with open(stem + '.meta.json', 'w', encoding='utf-8') as f:
+            json.dump(meta, f, indent=2)
         print(f'  {p}: {adj.shape[0]} nodes, {adj.nnz} edges, '
               f'mean degree {adj.nnz / max(adj.shape[0], 1):.1f}, '
               f'{isolated} isolated nodes -> {fname}')
