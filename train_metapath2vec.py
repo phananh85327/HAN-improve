@@ -21,6 +21,7 @@ merely separating node types.
 
 import argparse
 import os
+import sys
 import time
 
 # cap CUDA allocator block-splitting (same as train_han/train_gat): the sparse-grad
@@ -39,7 +40,8 @@ from build_metapath_graphs import build_base_matrices
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params,
                        evaluate_ranking_by_user, print_by_user,
-                       evaluate_ranking_stratified, print_stratified)
+                       evaluate_ranking_stratified, print_stratified,
+                       report_twin_breakdown)
 
 
 def generate_walks(base, templates, num_start, shifts, walks_per_node,
@@ -94,6 +96,14 @@ def main(args):
     for t in templates:
         assert len(t) >= 2 and t[0] == dst_name and t[-1] == dst_name, \
             f'template {t} must start and end at target type {dst_name}'
+    warnings = []
+    if not any(src_name in t for t in templates):
+        msg = (f'WARNING: no template contains {src_name}: {src_name} nodes are never visited, '
+               f'their embeddings stay at random init and the ranking metrics will sit at the '
+               f'chance floor (~0.10 Hit@10). Add a path through {src_name} (e.g. PUP).')
+        print(msg)
+        warnings.append(msg)
+    run_start = time.time()
 
     # ---- data: identical split + train-only base matrices ----
     dl = data_loader(f'{args.root}/{args.dataset}')
@@ -235,6 +245,10 @@ def main(args):
                 stop = True
                 break
     print(f'Best epoch {best_epoch:.2f}, val bpr {best_val:.4f}')
+    train_time_s = time.time() - run_start
+    if best_P is None:
+        raise SystemExit('no validation evaluation ever improved on inf (val bpr NaN, or '
+                         '--epochs 0); nothing to evaluate')
 
     # ---- frozen-embedding evaluation of the BEST-val epoch, identical protocol ----
     with torch.no_grad():
@@ -254,6 +268,7 @@ def main(args):
                                         deg[link_split['test_edges'][:, 0]])
     print('By user training degree:')
     print_stratified(strat)
+    twin = report_twin_breakdown(pos_scores, neg_scores, link_split, link_split['test_edges'])
     print_by_user(evaluate_ranking_by_user(
         pos_scores, neg_scores, link_split['test_edges'], link_split['test_negs']))
 
@@ -265,7 +280,10 @@ def main(args):
         torch.save({'model': 'metapath2vec', 'dataset': args.dataset,
                     'target_relation': args.target_relation, 'paths': templates,
                     'split_seed': args.split_seed, 'P_emb': P_emb.cpu(),
-                    'U_emb': U_emb.cpu(), 'metrics': results,
+                    'U_emb': U_emb.cpu(), 'metrics': results, 'metrics_twin': twin,
+                    'best_val_loss': best_val, 'best_epoch': best_epoch,
+                    'epochs_run': args.epochs if not stop else int(best_epoch) + 1,
+                    'train_time_s': float(train_time_s), 'warnings': warnings,
                     'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     return results
@@ -320,11 +338,39 @@ def parse_args():
                          '(each chunk holds ~pair_chunk x negatives x dim transients in backward); '
                          'chunk losses are scaled so gradients match the unchunked mean exactly')
     ap.add_argument('--lr', type=float, default=0.01)
+    ap.add_argument('--paper-walks', action='store_true',
+                    help='walk-corpus settings of the metapath2vec baseline in the HAN paper '
+                         '(Wang et al. 2019, Sec. 5.3: walk length 100, window 5, 5 negatives) with '
+                         '10 walks per node per template instead of the paper\'s 40 (one epoch is '
+                         '~2 h on a 12 GB card at 10; 40 would be ~8 h). Any of --walk-length, '
+                         '--walks-per-node, --window, --negatives passed explicitly keeps its value. '
+                         'Default (len 20, 5 walks, window 3) is the fast sweep setting; the paper '
+                         'used dim 64/128 -- dim stays 512 here so every model shares one width')
     ap.add_argument('--save-emb', type=str, default='auto')
     ap.add_argument('--gpu', type=int, default=0)
     ap.add_argument('--cpu', action='store_true')
     ap.add_argument('--seed', type=int, default=1)
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.paper_walks:
+        args = apply_paper_walks(args, sys.argv[1:])
+    return args
+
+
+PAPER_WALKS = {'walk_length': 100, 'walks_per_node': 10, 'window': 5, 'negatives': 5}
+
+
+def apply_paper_walks(args, argv):
+    """Set PAPER_WALKS on args unless the flag was passed explicitly (explicit wins)."""
+    explicit = {a.split('=')[0] for a in argv if a.startswith('--')}
+    applied = {}
+    for key, val in PAPER_WALKS.items():
+        if '--' + key.replace('_', '-') in explicit:
+            continue
+        setattr(args, key, val)
+        applied[key] = val
+    print('--paper-walks: ' + ', '.join(f'{k}={v}' for k, v in applied.items())
+          + (' (explicitly passed flags kept)' if len(applied) < len(PAPER_WALKS) else ''))
+    return args
 
 
 if __name__ == '__main__':

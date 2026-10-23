@@ -8,9 +8,58 @@ pass the two node-type ids to relate; the dataset-specific wiring (which adjacen
 dict keys to patch before meta-path propagation) lives in train_search.py/main_path.py.
 """
 
+import hashlib
+
 import numpy as np
 import scipy.sparse as sp
 import torch
+
+
+def product_twin_groups(full_adj_src2dst):
+    """Group dst nodes (products) whose reviewer sets are EXACTLY identical.
+
+    Amazon shows one review pool across the editions/formats of a title and the
+    SNAP amazon-meta crawl copies that pool into every edition's record, so the
+    HGB export contains thousands of product pairs with byte-identical user
+    sets (46 % of AMAZON products, 55 % of U-P edges; measured 2026-10-23). For
+    a test edge (u, p) whose user already has a TRAIN edge to such a twin, the
+    held-out item is predictable from a single P-U-P hop. The groups returned
+    here let the evaluation report that case separately.
+
+    Returns an int64 array [num_dst]: products with identical column sets share
+    a group id, every other product gets its own id. Exact identity only, so
+    near-duplicates (Jaccard 0.9-0.99) are NOT grouped: this is a lower bound.
+    """
+    adj = full_adj_src2dst.tocsc()  # columns = dst nodes, column indices = src ids
+    indptr, indices = adj.indptr, adj.indices
+    keys = {}
+    groups = np.empty(adj.shape[1], dtype=np.int64)
+    for j in range(adj.shape[1]):
+        col = np.sort(indices[indptr[j]:indptr[j + 1]])
+        if col.size == 0:
+            groups[j] = len(keys) + j  # cannot collide: group ids below len(keys) are taken
+            continue
+        key = hashlib.blake2b(col.astype(np.int64).tobytes(), digest_size=16).digest()
+        groups[j] = keys.setdefault(key, len(keys))
+    # compact ids: hashed groups first, then isolated singletons
+    _, groups = np.unique(groups, return_inverse=True)
+    return groups.astype(np.int64)
+
+
+def twin_in_train(link_split, edges):
+    """Boolean mask over `edges` [N, 2] (src, dst): True when the src node has a
+    TRAIN edge to a different dst node in the same twin group as the edge's dst
+    (see product_twin_groups). For val/test edges the edge itself is never in the
+    train adjacency, so any hit is a genuine duplicate edition."""
+    groups = link_split['dst_twin_group']
+    n_groups = int(groups.max()) + 1
+    num_dst = groups.shape[0]
+    G = sp.csr_matrix((np.ones(num_dst, dtype=np.float32),
+                       (np.arange(num_dst), groups)), shape=(num_dst, n_groups))
+    UG = (link_split['train_adj_src2dst'] @ G).tocsr()  # (num_src, n_groups) counts
+    edges = np.asarray(edges)
+    hits = np.asarray(UG[edges[:, 0], groups[edges[:, 1]]]).ravel()
+    return hits > 0
 
 
 def get_relation_edges(dl, src_type, dst_type):
@@ -53,6 +102,10 @@ def build_link_split(dl, src_type, dst_type, seed=0, val_ratio=0.1, test_ratio=0
                                   meta-path feature propagation so val/test edges can't
                                   leak into the features the model is scored on, and pass
                                   it (NOT full_adj) to TrainEdgeSampler
+      dst_twin_group           : int64 [num_dst] duplicate-edition group per dst node
+                                  (product_twin_groups over ALL edges; a data property,
+                                  independent of the split). Used only for reporting, see
+                                  twin_in_train.
     """
     rng = np.random.default_rng(seed)
 
@@ -120,6 +173,7 @@ def build_link_split(dl, src_type, dst_type, seed=0, val_ratio=0.1, test_ratio=0
         'test_negs': test_negs,
         'full_adj_src2dst': full_adj_src2dst,
         'train_adj_src2dst': train_adj_src2dst,
+        'dst_twin_group': product_twin_groups(full_adj_src2dst),
     }
 
 

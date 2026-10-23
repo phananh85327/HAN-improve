@@ -12,7 +12,11 @@ Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse.
 ## Inputs
 
 - `data/AMAZON/` -- HGB-format node.dat / link.dat / label.dat[.test]
-  (built by dat_generator.py from the C# preprocessing pipeline)
+  (built by `preprocessing/dat_generator.py` from the CSVs the C# pipeline in
+  `preprocessing/` writes; see `preprocessing/README.md` for the filter chain and
+  the known data issues). `data_leafcat/AMAZON/` is the same dataset with
+  products linked only to their leaf categories (`--category-link leaf`); run any
+  script against it with `--root data_leafcat`.
 - a comma-separated meta-path list (from your discovery method), or an
   `arch.py` key via `--arch` (e.g. `amazon_lp_han` = the discovered set of
   record, `amazon_lp_manual` = the hand-picked ablation set)
@@ -64,7 +68,45 @@ Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse.
     python recommend.py --emb output/AMAZON/han_emb_auto_s1.pt --interactive \
         --products-csv <...>/filtered_products.csv --users-csv <...>/filtered_users.csv --exclude-seen
 
-## Protocol knobs (keep consistent across everything you compare)
+## Run flow (locked protocol, 2026-10-23)
+
+Everything below is driven by `run_all.bat <stage>` (`execute.bat` forwards to it; no
+argument = `summarize`). Split seed 1 everywhere (the LMSPS fleets selected their paths on
+split 1), graphs read from `data/AMAZON/metapath_graphs_all_unique` via `--graph-dir`, one
+blob per run at `output/AMAZON/<model>_<archkey>_s<seed>[_paper].pt`, one log per run under
+`logs/Final 5/`. A run whose blob exists is skipped, so the script can be relaunched.
+
+| stage | what | runs | GPU time (12 GB card) |
+|---|---|---|---|
+| `build` | manual + random ablation paths into the shared graph dir (`--skip-existing`) | 3 | ~1 h |
+| `audit` | `check_graph_bias.py`, `check_edition_twins.py` | 2 | 10 min |
+| `han` | HAN config of record (`--stage 150 --patience 10 --beta-warmup 15`), seed 1, 13 shortlist keys + `amazon_lp_manual` + `amazon_lp_random4_s0` + `amazon_lp_random6_s0` | 16 | ~16 h |
+| `m2v` | metapath2vec fast sweep (`--epochs 10 --evals-per-epoch 4 --patience 6`), same 16 keys | 16 | ~8 h |
+| `gat` | GAT on the union graph (arch-independent), seeds 1 2 3 | 3 | ~3 h |
+| `seeds` | HAN seeds 2 3 on the headline keys `amazon_lp_f4_c`, `amazon_lp_f6_s1`, `amazon_lp_manual` (+ extra keys passed as arguments) | 6+ | ~10 h |
+| `m2v_paper` | metapath2vec `--paper-walks` (walk length 100, 10 walks/node, window 5), seeds 1 2 3, headline keys | 9 | ~60 h |
+| `han_paper` | HAN `--paper-config` (Wang et al. Sec. 5.3 hyperparameters), seed 1, headline keys | 3 | ~8 h |
+| `summarize` | `summarize_results.py --group --csv "logs/Final 5/results.csv"` | 1 | minutes |
+
+`run_all.bat all` runs them in that order (the 60-hour `m2v_paper` stage is second to last, so
+every other table can be drafted after ~45 h); `run_all.bat dry` prints every command.
+
+How to read the result table (`summarize_results.py`):
+- **Choose the best arch by validation BPR**, never by a test metric. Then pass that key to
+  `run_all.bat seeds <key>` if it is not already a headline key.
+- Rows: *discovered* (13 shortlist sets from the LMSPS fleet, 4 or 6 paths), *manual* (5 hand-picked
+  paths), *random* (schema-valid random paths at the same budgets) -- the discovery question is
+  whether the discovered rows beat manual and random at equal path budget; GAT is the
+  heterogeneity-blind floor; metapath2vec the shallow meta-path baseline.
+- Report `hit10_notwin` next to `hit10`: the duplicate-edition shortcut (section "Metrics") lifts
+  every model by about 7-8 points and the non-twin column is the recommendation-quality number.
+- `han_paper` / `m2v_paper` rows are fidelity rows (paper hyperparameters / paper walk corpus), not
+  the config of record; keep them in a separate table.
+
+Legacy: `logs/Final 1-4` and the `han_emb_*`, `m2v_emb_*`, `Old 2/` blobs predate the tie-break fix
+and use retired arch keys; they are not comparable with this flow.
+
+
 
 - `--split-seed` pins WHICH edges are train/val/test and the fixed 99 eval
   negatives per test edge -- identical across all models and both arches, so
@@ -94,7 +136,20 @@ Each trainer (and eval_emb.py) reports two tables:
   deduplicated union of that user's negatives, macro-averaged over users --
   the four metrics genuinely differ. Not comparable to per-edge numbers;
   report separately.
-Plus a Hit/NDCG breakdown by user training degree (cold vs heavy users).
+Plus a Hit/NDCG breakdown by user training degree (cold vs heavy users), and a
+breakdown by **duplicate-edition twin**: Amazon shares one review pool across the
+editions of a title and the SNAP dump copies it into every edition, so 46 % of
+products have a reviewer set identical to another product's and 55 % of U-P edges
+sit on such products. A test edge whose user already has a TRAIN edge to a twin of
+the test item is predictable from one P-U-P hop; 50 % of test edges are in that
+situation by exact identity (61 % at Jaccard >= 0.99, 73 % at >= 0.9; split 1).
+Every trainer and `eval_emb.py` therefore report Hit@10 / NDCG@10 separately for
+"twin in train" and "no twin in train" edges
+(`link_data.product_twin_groups`, `han_utils.report_twin_breakdown`;
+`check_edition_twins.py` prints the dataset-level numbers). Read the non-twin row
+as the number closest to recommendation quality rather than edition matching
+(saved HAN runs: ~0.95 Hit@10 on twin edges vs ~0.80 on the rest; metapath2vec
+~0.87 vs ~0.70).
 
 All trainers default to `--user-tower embedding`: the user side is a free
 per-user trained vector, matching the per-user capacity metapath2vec/GAT get
@@ -143,14 +198,19 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
 | han_utils.py | BPR loss, chunked ranking scorer, per-edge/per-user/stratified metrics, seeding |
 | build_metapath_graphs.py | sparse chain-multiply + top-k pruning per meta-path (seeded random tie-break, .meta.json provenance) |
 | check_graph_bias.py | per-id-decile degree audit of built graphs (detects tie-break / hub bias) |
+| check_edition_twins.py | duplicate-edition audit: identical reviewer sets, share of test edges with a train twin |
+| preprocessing/ | raw SNAP -> CSV (C#) -> HGB .dat (`dat_generator.py`); README documents filters and known issues |
 | model_han.py | GAT-per-path + semantic attention (pure torch, custom SpMM backward, gradient checkpointing) |
-| train_han.py | training / beta warmup / early stopping / evaluation; `--paper-config` for the paper's Sec. 5.3 hyperparameters |
-| train_metapath2vec.py | baseline: meta-path-guided walks + skip-gram (frozen-embedding eval) |
-| train_gat.py | baseline: homogeneous GAT on the raw union graph (NO meta-paths) |
-| random_paths.py | seeded random valid meta-paths (ablation baseline) |
+| train_han.py | training / beta warmup / early stopping / evaluation; `--graph-dir` shared graph folder; `--paper-config` for the paper's Sec. 5.3 hyperparameters |
+| train_metapath2vec.py | baseline: meta-path-guided walks + skip-gram (frozen-embedding eval); `--paper-walks` for the HAN paper's walk settings |
+| train_gat.py | baseline: homogeneous GAT on the raw union graph (NO meta-paths); no ELU on the output layer |
+| random_paths.py | seeded random valid meta-paths (ablation baseline; the `amazon_lp_random*` keys in arch.py) |
 | eval_emb.py | recompute all test metrics from saved embeddings, no retraining |
+| summarize_results.py | one table over all saved blobs (val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds |
+| run_all.bat / execute.bat | the complete experiment flow by stage (see "Run flow") |
 | recommend.py | ASIN -> similar products; user -> top-k products |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
 
-Saved embedding blobs (`*_emb.pt`) contain P_emb/U_emb plus provenance:
-model, dataset, paths, split_seed, the test metrics, and the full run config.
+Saved embedding blobs (`*_emb.pt`, `<model>_<arch>_s<seed>.pt`) contain P_emb/U_emb plus
+provenance: model, dataset, paths, split_seed, the test metrics (`metrics`, `metrics_twin`),
+`best_val_loss` / `best_epoch` / `epochs_run` / `train_time_s`, and the full run config.

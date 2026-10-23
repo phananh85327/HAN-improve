@@ -1,17 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Plain GAT baseline -- NO meta-paths. The heterogeneity-blind comparison used in
-the HAN paper itself: one homogeneous multi-layer GAT over the union of ALL raw
-edges (P-P also-bought, C-C hierarchy, P-C membership, and the TRAIN-ONLY U-P
-review edges), with per-type input projections to reconcile feature dimensions.
-User embeddings come from the same GAT (no shallow tower) -- contrasting with
-HAN/LMSPS is the point.
+Plain GAT baseline -- NO meta-paths. A heterogeneity-blind GAT (Velickovic et al.,
+ICLR 2018) over the union of ALL raw edges (P-P also-bought, C-C hierarchy, P-C
+membership, and the TRAIN-ONLY U-P review edges), with per-type input projections
+to reconcile feature dimensions. This is the HGB-style "GAT on the whole graph"
+comparison, NOT the HAN paper's GAT baseline (which runs GAT on each homogeneous
+meta-path graph of the target type and reports the best single path; the closest
+equivalent here is train_han.py --paths <one path>). User embeddings come from the
+same GAT (no shallow tower) -- contrasting with HAN/LMSPS is the point.
+
+Fidelity to the original GAT: 2 layers, 8 heads, LeakyReLU(0.2) attention, ELU
+between layers, self-loops, Glorot init. Deliberate differences, all shared with the
+HAN config of record so the comparison isolates the encoder: hidden 512 (8 x 64)
+instead of 8 x 8, dropout 0.2 instead of 0.6, lr 1e-3 / no weight decay instead of
+5e-3 / 5e-4, early stopping with --patience + --min-delta instead of patience 100,
+and NO nonlinearity on the output layer (the original has none either; its output
+goes to a softmax, ours to a dot product).
 
 Same split, BPR training, and 99-negative ranking eval as every other model;
 saves the shared embedding format for recommend.py.
 
-    python train_gat.py --dataset AMAZON --split-seed 0
+    python train_gat.py --dataset AMAZON --split-seed 1 --stage 150 --patience 10
 
 VRAM: ~8M edges x 8 heads x 2 layers peaks around 8-10 GB on the default config,
 close to a 12 GB card's limit; sustained near-limit pressure is what killed long
@@ -45,7 +55,8 @@ from model_han import GATLayer
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params,
                        evaluate_ranking_by_user, print_by_user,
-                       evaluate_ranking_stratified, print_stratified)
+                       evaluate_ranking_stratified, print_stratified,
+                       report_twin_breakdown)
 
 
 class HomoGAT(nn.Module):
@@ -55,12 +66,14 @@ class HomoGAT(nn.Module):
     def __init__(self, type_dims, in_dim, hidden, num_heads, feat_drop, attn_drop,
                  num_layers=2, grad_ckpt=False):
         super().__init__()
+        assert hidden % num_heads == 0, 'hidden must be divisible by num-heads'
         self.grad_ckpt = grad_ckpt
         self.projs = nn.ModuleList([nn.Linear(d, in_dim) for d in type_dims])
         dims = [in_dim] + [hidden] * num_layers
         self.gats = nn.ModuleList([
             GATLayer(dims[i], hidden // num_heads, num_heads,
-                     feat_drop=feat_drop, attn_drop=attn_drop)
+                     feat_drop=feat_drop, attn_drop=attn_drop,
+                     activation=(i < num_layers - 1))   # no ELU on the output layer
             for i in range(num_layers)
         ])
 
@@ -166,9 +179,11 @@ def main(args):
 
     best_epoch, best_val_loss, wait = -1, float('inf'), 0
     train_times = []
+    epochs_run = 0
     iter_num = train_sampler.num_batches(args.batch_size)
 
     for epoch in tqdm(range(args.stage)):
+        epochs_run = epoch + 1
         gc.collect()
         model.train()
         start = time.time()
@@ -242,6 +257,7 @@ def main(args):
                                         deg[link_split['test_edges'][:, 0]])
     print('By user training degree:')
     print_stratified(strat)
+    twin = report_twin_breakdown(pos_scores, neg_scores, link_split, link_split['test_edges'])
     print_by_user(evaluate_ranking_by_user(
         pos_scores, neg_scores, link_split['test_edges'], link_split['test_negs']))
 
@@ -249,10 +265,13 @@ def main(args):
         save_path = args.save_emb
         if save_path == 'auto':
             save_path = f'./output/{args.dataset}/gat_emb.pt'
+        os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
         torch.save({'model': 'GAT', 'dataset': args.dataset,
                     'target_relation': args.target_relation, 'paths': [],
                     'split_seed': args.split_seed, 'P_emb': P_emb.cpu(),
-                    'U_emb': U_emb.cpu(), 'metrics': results,
+                    'U_emb': U_emb.cpu(), 'metrics': results, 'metrics_twin': twin,
+                    'best_val_loss': best_val_loss, 'best_epoch': best_epoch,
+                    'epochs_run': epochs_run, 'train_time_s': float(sum(train_times)),
                     'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     if not args.eval_only:

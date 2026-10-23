@@ -175,6 +175,14 @@ def main():
                          'symmetrization; kept only for comparison with old graphs')
     ap.add_argument('--tie-seed', type=int, default=None,
                     help='seed for --tie-break random (default: same as --split-seed)')
+    ap.add_argument('--graph-dir', type=str, default='',
+                    help='output directory (default <root>/<dataset>/metapath_graphs). Files are '
+                         'named per path, so several arches can share one directory; pass the same '
+                         'value to train_han.py --graph-dir')
+    ap.add_argument('--skip-existing', action='store_true',
+                    help='skip a path whose .npz and .meta.json already exist in the output '
+                         'directory (same top-k / split seed), so arches sharing paths can be '
+                         'built into one directory without redoing work')
     args = ap.parse_args()
     if args.tie_seed is None:
         args.tie_seed = args.split_seed
@@ -202,10 +210,15 @@ def main():
                                   seed=args.split_seed, num_neg_eval=args.num_neg_eval)
     base = build_base_matrices(dl, args.dataset, link_split)
 
-    out_dir = os.path.join(args.root, args.dataset, 'metapath_graphs')
+    out_dir = args.graph_dir or os.path.join(args.root, args.dataset, 'metapath_graphs')
     os.makedirs(out_dir, exist_ok=True)
 
     for p in paths:
+        stem = os.path.join(out_dir, f'{p}_top{args.topk}_split{args.split_seed}')
+        fname = stem + '.npz'
+        if args.skip_existing and os.path.isfile(fname) and os.path.isfile(stem + '.meta.json'):
+            print(f'Skipping {p}: {fname} exists')
+            continue
         print(f'Materializing {p} (topk {args.topk}, tie-break {args.tie_break}) ...')
         # one generator per path, re-seeded from the same seed: a path's graph does
         # not depend on which other paths were built in the same invocation
@@ -213,8 +226,6 @@ def main():
                else None)
         adj = materialize_path(p, base, args.topk, rng=rng)
         isolated = int((np.diff(adj.indptr) == 0).sum())
-        stem = os.path.join(out_dir, f'{p}_top{args.topk}_split{args.split_seed}')
-        fname = stem + '.npz'
         sp.save_npz(fname, adj)
         meta = {'path': p, 'topk': args.topk, 'split_seed': args.split_seed,
                 'tie_break': args.tie_break,

@@ -12,7 +12,10 @@ Prints, per file:
     and the 'metrics' dict stored in the blob -- a built-in sanity check),
   - the per-user metrics (positives pooled per user, so Precision/Recall/
     NDCG/Hit genuinely differ),
-  - the per-user-training-degree breakdown.
+  - the per-user-training-degree breakdown,
+  - the duplicate-edition breakdown: test edges whose user already has a TRAIN
+    edge to a product with an identical reviewer set (another edition of the
+    same title) vs the rest. See link_data.product_twin_groups.
 
     python eval_emb.py --emb output/AMAZON/han_emb_auto.pt
     python eval_emb.py --emb output/AMAZON/*.pt ../LMSPS/hgb/output/AMAZON/lmsps_emb.pt
@@ -28,7 +31,8 @@ from data_loader import data_loader
 from link_data import build_link_split
 from han_utils import (NODE_TYPE_IDS, score_edges, evaluate_ranking,
                        evaluate_ranking_by_user, print_by_user,
-                       evaluate_ranking_stratified, print_stratified)
+                       evaluate_ranking_stratified, print_stratified,
+                       report_twin_breakdown)
 
 
 def main(args):
@@ -90,6 +94,7 @@ def main(args):
                                             deg[link_split['test_edges'][:, 0]])
         print('By user training degree:')
         print_stratified(strat)
+        report_twin_breakdown(pos_scores, neg_scores, link_split, link_split['test_edges'])
 
 
 def parse_args():

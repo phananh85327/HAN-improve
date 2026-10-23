@@ -45,7 +45,7 @@ from model_han import HAN_LP, ShallowNodeTower, UserEmbeddingTower
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        evaluate_ranking_stratified, print_stratified,
                        evaluate_ranking_by_user, print_by_user,
-                       set_random_seed, get_n_params)
+                       set_random_seed, get_n_params, report_twin_breakdown)
 
 
 def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device):
@@ -152,7 +152,7 @@ def main(args):
         src_attr = torch.FloatTensor(src_raw)
         src_attr_dev = src_attr.to(device)
 
-    graph_dir = os.path.join(args.root, args.dataset, 'metapath_graphs')
+    graph_dir = args.graph_dir or os.path.join(args.root, args.dataset, 'metapath_graphs')
     print(f'Loading meta-path graphs from {graph_dir}:')
     graphs = load_metapath_graphs(graph_dir, paths, args.topk, args.split_seed,
                                   link_split['num_dst'], device)
@@ -190,10 +190,12 @@ def main(args):
 
     best_epoch, best_val_loss, wait = -1, float('inf'), 0
     train_times = []
+    epochs_run = 0
     iter_num = train_sampler.num_batches(args.batch_size)
     assert args.beta_warmup < args.stage, '--beta-warmup must leave post-warmup epochs to train/checkpoint in'
 
     for epoch in tqdm(range(args.stage)):
+        epochs_run = epoch + 1
         gc.collect()
         # warmup: freeze beta uniform so every GAT learns before attention judges;
         # applies to this epoch's train steps AND its val forward
@@ -280,17 +282,22 @@ def main(args):
                                         deg[link_split['test_edges'][:, 0]])
     print('By user training degree:')
     print_stratified(strat)
+    twin = report_twin_breakdown(pos_scores, neg_scores, link_split, link_split['test_edges'])
 
     if args.save_emb:
         save_path = args.save_emb
         if save_path == 'auto':
             save_path = f'./output/{args.dataset}/han_emb.pt'
+        os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
         torch.save({'model': 'HAN', 'dataset': args.dataset,
                     'target_relation': args.target_relation, 'paths': paths,
                     'beta': beta.detach().cpu(), 'split_seed': args.split_seed,
                     'P_emb': dst_emb.detach().cpu(), 'U_emb': src_emb.detach().cpu(),
                     'user_tower': args.user_tower,
-                    'metrics': results, 'config': vars(args)}, save_path)
+                    'metrics': results, 'metrics_twin': twin,
+                    'best_val_loss': best_val_loss, 'best_epoch': best_epoch,
+                    'epochs_run': epochs_run, 'train_time_s': float(sum(train_times)),
+                    'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     os.remove(f'{checkpt_file}.pkl')
     return results
@@ -309,6 +316,11 @@ def parse_args():
                     help='arch.py key holding the path list, e.g. amazon_lp_han')
     ap.add_argument('--topk', type=int, default=20,
                     help='must match build_metapath_graphs.py --topk')
+    ap.add_argument('--graph-dir', type=str, default='',
+                    help='directory holding <path>_top<k>_split<s>.npz (default '
+                         '<root>/<dataset>/metapath_graphs). Graph files are per path, so one '
+                         'directory with every path built (e.g. data/AMAZON/metapath_graphs_all_unique) '
+                         'serves every --arch without renaming folders')
     ap.add_argument('--split-seed', type=int, default=0,
                     help='must match the search/retrain/build --split-seed')
     ap.add_argument('--num-neg-eval', type=int, default=99)

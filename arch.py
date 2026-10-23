@@ -11,10 +11,16 @@ archs = {
         ['PPP', 'PAPP', 'PCPA', 'PCPP', 'PPPC', 'PPPP', 'PAPAP', 'PAPPP', 'PCPAP', 'PCPPA', 'PPAPA', 'PPAPC', 'PPAPP',
          'PAPAPA', 'PAPCPA', 'PAPPAP', 'PAPPCP', 'PAPPPP', 'PCPAPP', 'PCPCPP', 'PCPPAP', 'PCPPPP', 'PPAPAP', 'PPAPCP',
          'PPAPPA', 'PPAPPP', 'PPCPAP', 'PPPAPA', 'PPPCPA', 'PPPPPP'], []],
+    # Discovered sets. Record provenance so retrain/downstream can use the SAME
+    # --split-seed as the search (the final set is chosen by validation BPR on
+    # that split's val edges). "?" = not recorded at search time -- fill in.
+    # provenance: split-seed ?, stage ?, ns 5, num_final ?, dedupe-reversed ?
     "amazon_lp_han": [
         ['PCPPUP', 'PPPPUP', 'PPUPUP', 'PUPCCP', 'PUPCPP'], []],
+    # provenance: split-seed ?, stage ?, ns 5, num_final ?, dedupe-reversed ?
     "amazon_lp_han2": [
         ['PCPPUP', 'PPPPUP', 'PPUPPP', 'PPUPUP', 'PUPPCP'], []],
+    # provenance: split-seed ?, stage ?, ns 5, num_final ?, dedupe-reversed ?
     "amazon_lp_han3": [
         ['PUPP', 'PCPCP', 'PPCCCP', 'PPCPUP', 'PPUPUP'], []],
     # hand-engineered baseline (what an expert would define with NO discovery):
@@ -24,62 +30,62 @@ archs = {
     # an equal path budget -- see random_paths.py for the matching random row.
     "amazon_lp_manual": [
         ['PP', 'PCP', 'PUP', 'PPP', 'PCCP'], []],
+    # ---- Fleet v2 final schedule (2026-10-22): 30 seeds per ns, split-seed 1,
+    # stage 150, 36 reverse-deduplicated candidates, warm-up 15, exhaustive
+    # noise-free selection; 1-SE re-selection (delta 0.010, leave-one-out vote;
+    # source: logs/Fleet v2/final_ns4|final_ns6/reselect_d010.json "shortlist").
+    # "xN" = number of the 30 runs whose 1-SE pick is this set. "_c" = the
+    # assembled path-frequency consensus (the ns most frequent paths), which is
+    # not necessarily any run's pick. Core relations {PPUPUP, PUPPUP, PUPUP}
+    # appear in nearly every pick; the remaining slots are fillers with ~0
+    # marginal effect. Downstream MUST use --split-seed 1. Chat log #18, Add. 9-10.
 
-    #"amazon_lp_auto_0": [['PPUPP', 'PPPCPP', 'PUPCCP', 'PPPUPP'], []],
-    "amazon_lp_auto_0": [['PPPUP', 'PPUPCP', 'PPUPP', 'PPUPPP', 'PPUPUP', 'PUP', 'PUPCCP', 'PUPCP', 'PUPCPP', 'PUPP', 'PUPPP', 'PUPPPP', 'PUPPUP', 'PUPUP', 'PUPUPP'], []],
-
-    "amazon_lp_auto_1": [['PPUPCP', 'PPUPUP', 'PUPCPP', 'PUPPUP'], []], # (duplicate 1 x5)
-    "amazon_lp_auto_2": [['PUPUP', 'PPUPCP', 'PPUPUP', 'PUPCPP'], []],  # (duplicate 2 x4)
-    "amazon_lp_auto_3": [['PPUPCP', 'PPUPUP', 'PUPCPP', 'PUPUPP'], []], # (duplicate 3 x4)
-    "amazon_lp_auto_4": [['PUPUP', 'PPUPCP', 'PPUPUP', 'PUPPUP'], []],  # (duplicate 4 x3)
-    "amazon_lp_auto_5": [['PPUPCP', 'PPUPUP', 'PUPPUP', 'PUPUPP'], []], # (duplicate 5 x3)
-    "amazon_lp_auto_6": [['PPUPP', 'PUPUP', 'PPUPCP', 'PUPPUP'], []],
-    "amazon_lp_auto_7": [['PPUPP', 'PPUPCP', 'PPUPUP', 'PUPPUP'], []],
-    "amazon_lp_auto_8": [['PUPUP', 'PPPCPP', 'PPUPCP', 'PPUPUP'], []],
-    "amazon_lp_auto_9": [['PUPUP', 'PPUPCP', 'PPUPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_10": [['PPUPP', 'PPUPUP', 'PUPCPP', 'PUPPUP'], []],
-    "amazon_lp_auto_11": [['PUPUP', 'PPPCPP', 'PPUPUP', 'PUPPUP'], []],
-    "amazon_lp_auto_12": [['PPPCPP', 'PPUPCP', 'PPUPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_13": [['PPUPCP', 'PPUPUP', 'PUPCCP', 'PUPUPP'], []],
-    "amazon_lp_auto_14": [['PPUPCP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_15": [['PPPCPP', 'PPUPCP', 'PPUPUP', 'PUPPUP'], []],
-    "amazon_lp_auto_16": [['PPPUPP', 'PPUPCP', 'PUPCPP', 'PUPPUP'], []],
-
-    "amazon_lp_auto_17": [['PUP', 'PPPUP', 'PUPCP', 'PUPUP', 'PUPPUP', 'PUPUPP'], []],    # (duplicate 1 x3)
-    "amazon_lp_auto_18": [['PUPCP', 'PUPPP', 'PUPUP', 'PUPCCP', 'PUPPUP', 'PUPUPP'], []], # (duplicate 2 x2)
-    "amazon_lp_auto_19": [['PPUPP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPPUP'], []], # (duplicate 3 x2)
-    "amazon_lp_auto_20": [['PUP', 'PPUPP', 'PUPCP', 'PUPUP', 'PPUPCP', 'PUPPUP'], []],
-    "amazon_lp_auto_21": [['PUP', 'PPPUP', 'PUPCP', 'PUPUP', 'PUPCCP', 'PUPPUP'], []],
-    "amazon_lp_auto_22": [['PUP', 'PPUPP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPUP'], []],
-    "amazon_lp_auto_23": [['PUP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_24": [['PUP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPUPP'], []],
-    "amazon_lp_auto_25": [['PUP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_26": [['PUP', 'PUPCP', 'PUPUP', 'PUPCCP', 'PUPCPP', 'PUPUPP'], []],
-    "amazon_lp_auto_27": [['PUP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPPUP'], []],
-    "amazon_lp_auto_28": [['PUP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPCCP', 'PUPUPP'], []],
-    "amazon_lp_auto_29": [['PUP', 'PUPCP', 'PUPUP', 'PUPCCP', 'PUPCPP', 'PUPPUP'], []],
-    "amazon_lp_auto_30": [['PUPP', 'PUPCP', 'PUPUP', 'PPUPCP', 'PUPCCP', 'PUPUPP'], []],
-    "amazon_lp_auto_31": [['PUP', 'PUPCP', 'PPUPUP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_32": [['PUPP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPPUP'], []],
-    "amazon_lp_auto_33": [['PPPUP', 'PUPCP', 'PUPUP', 'PPUPUP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_34": [['PPPUP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPPP', 'PUPUPP'], []],
-    "amazon_lp_auto_35": [['PPPUP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_36": [['PPUPP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPPP', 'PUPPUP'], []],
-    "amazon_lp_auto_37": [['PPUPP', 'PUPCP', 'PUPUP', 'PUPCCP', 'PUPCPP', 'PUPUPP'], []],
-    "amazon_lp_auto_38": [['PPUPP', 'PUPCP', 'PUPUP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_39": [['PUPCP', 'PUPUP', 'PPUPPP', 'PUPCCP', 'PUPCPP', 'PUPUPP'], []],
-    "amazon_lp_auto_40": [['PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPPUP', 'PUPUPP'], []],
-    "amazon_lp_auto_41": [['PUPCP', 'PUPUP', 'PPUPUP', 'PUPCPP', 'PUPPPP', 'PUPUPP'], []],
-    "amazon_lp_auto_42": [['PUPCP', 'PUPUP', 'PPUPUP', 'PUPCCP', 'PUPPPP', 'PUPUPP'], []],
-
-    "amazon_lp_manual_0": [['PP', 'PCP', 'PPP', 'PUP', 'PCPP', 'PPCP', 'PPPP', 'PPUP', 'PUPP', 'PCPCP', 'PCPUP', 'PUPCP', 'PUPUP', 'PCPPUP', 'PPUPCP', 'PUPCPP', 'PPUPUP', 'PUPPUP'], []],
-
-    "amazon_lp_manual_1": [['PP', 'PUP', 'PCP', 'PPP'], []],
-    "amazon_lp_manual_2": [['PUP', 'PUPUP', 'PPUP', 'PUPP'], []],
-    "amazon_lp_manual_3": [['PCP', 'PCPCP', 'PPCP', 'PCPP'], []],
-    "amazon_lp_manual_4": [['PUP', 'PCP', 'PUPCP', 'PCPUP'], []],
-    "amazon_lp_manual_5": [['PPP', 'PPPP', 'PPUP', 'PUPP'], []],
-    "amazon_lp_manual_6": [['PUPCP', 'PPUPCP', 'PUPCPP', 'PCPPUP'], []],
-    "amazon_lp_manual_7": [['PUPUP', 'PUPCP', 'PPUPUP', 'PUPPUP'], []],
-    "amazon_lp_manual_8": [['PUPUP', 'PCPCP', 'PPUPCP', 'PUPPUP'], []],
+    "amazon_lp_unique_strings": [
+        ['PCCPUP', 'PCPPUP', 'PCPUP', 'PCPUPP', 'PPCPUP', 'PPPPUP', 'PPPUP', 'PPPUPP', 'PPUP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    # ns 4 shortlist (6 sets); _c is also the most frequent pick
+    "amazon_lp_f4_s1": [          # x5, consensus (= LMSPS repo key amazon_lp_f4_c)
+        ['PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f4_s2": [         # x4
+        ['PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f4_s3": [         # x4
+        ['PCCPUP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f4_s4": [         # x3
+        ['PCPUPP', 'PPPUPP', 'PPUPUP', 'PUPPUP'], []],
+    "amazon_lp_f4_s5": [         # x3
+        ['PCCPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP'], []],
+    "amazon_lp_f4_s6": [         # x2
+        ['PCPUP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    # ns 6 shortlist (7 sets); here the consensus (_c) was itself picked only x2,
+    # so _s1 (x5) is the better single representative
+    "amazon_lp_f6_s1": [         # x5, most frequent pick
+        ['PCPPUP', 'PPPPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s2": [         # x3
+        ['PPCPUP', 'PPPPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s3": [         # x2
+        ['PPPPUP', 'PPPUPP', 'PPUP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s4": [          # x2, consensus (= LMSPS repo key amazon_lp_f6_c)
+        ['PPPPUP', 'PPPUPP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s5": [         # x2
+        ['PPCPUP', 'PPPUPP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s6": [         # x2
+        ['PPPPUP', 'PPUP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    "amazon_lp_f6_s7": [         # x2
+        ['PPPPUP', 'PPPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
+    # ---- random-path ablation rows (2026-10-23): schema-valid random P...P walks
+    # of length 4-6 letters, reverse-deduplicated, from
+    #   python random_paths.py --num 4 --min-len 4 --max-len 6 --seed 0
+    #   python random_paths.py --num 6 --min-len 4 --max-len 6 --seed 0
+    # (the 6-set extends the 4-set: same RNG stream). Same path budget as the ns-4 /
+    # ns-6 discovered sets, so "discovered vs random" compares path QUALITY only.
+    "amazon_lp_random4_s0": [
+        ['PUPUP', 'PPPUP', 'PPUPCP', 'PCCCP'], []],
+    "amazon_lp_random6_s0": [
+        ['PUPUP', 'PPPUP', 'PPUPCP', 'PCCCP', 'PPUPUP', 'PUPP'], []],
 }
+
+# Aliases matching the keys the LMSPS repo (hgb/arch.py, reselect_fleet.py output)
+# uses for the assembled path-frequency consensus, so thesis tables built from
+# either repo's logs line up. Same list objects, so graphs built for the _sN key
+# serve the _c key unchanged (graph files are per path, not per arch).
+archs["amazon_lp_f4_c"] = archs["amazon_lp_f4_s1"]
+archs["amazon_lp_f6_c"] = archs["amazon_lp_f6_s4"]

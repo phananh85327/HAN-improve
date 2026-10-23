@@ -168,10 +168,41 @@ def evaluate_ranking_stratified(pos_scores, neg_scores, train_degrees,
     return out
 
 
+def evaluate_ranking_by_flag(pos_scores, neg_scores, flag,
+                             names=('no twin in train', 'twin in train'), ks=(10,)):
+    """Ranking metrics split by a boolean per-edge flag (e.g. link_data.twin_in_train:
+    does the user already have a TRAIN edge to a duplicate edition of the test item?).
+    Same output shape as evaluate_ranking_stratified, so print_stratified applies."""
+    flag = np.asarray(flag, dtype=bool)
+    out = {}
+    for value, name in ((False, names[0]), (True, names[1])):
+        mask = flag == value
+        n = int(mask.sum())
+        if n == 0:
+            continue
+        m = torch.from_numpy(mask).to(pos_scores.device)
+        out[name] = {'n_edges': n,
+                     **evaluate_ranking(pos_scores[m], neg_scores[m], ks=ks)}
+    return out
+
+
 def print_stratified(strat):
     """Compact per-bucket report (NDCG/Hit only -- Precision/Recall duplicate
     Hit in the 1-positive protocol)."""
+    width = max([9] + [len(name) for name in strat])
     for name, res in strat.items():
         metrics = '  '.join(f'{k} {v:.4f}' for k, v in res.items()
                             if k.startswith(('NDCG', 'Hit')))
-        print(f'  {name:<9} ({res["n_edges"]:>7} edges)  {metrics}')
+        print(f'  {name:<{width}} ({res["n_edges"]:>7} edges)  {metrics}')
+
+
+def report_twin_breakdown(pos_scores, neg_scores, link_split, edges):
+    """Print (and return) the duplicate-edition breakdown for the given eval edges.
+    Imported lazily to keep han_utils free of a link_data dependency at import time."""
+    from link_data import twin_in_train
+    flag = twin_in_train(link_split, edges)
+    strat = evaluate_ranking_by_flag(pos_scores, neg_scores, flag)
+    print(f'By duplicate-edition twin in train (identical reviewer sets; '
+          f'{100 * flag.mean():.1f}% of eval edges have one):')
+    print_stratified(strat)
+    return strat

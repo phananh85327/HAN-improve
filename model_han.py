@@ -126,8 +126,12 @@ class GATLayer(nn.Module):
     softmax over incoming edges, attn_drop on coefficients, bias, ELU."""
 
     def __init__(self, in_dim, head_dim, num_heads, feat_drop=0.0, attn_drop=0.0,
-                 negative_slope=0.2):
+                 negative_slope=0.2, activation=True):
         super().__init__()
+        # activation=False -> raw concatenated heads + bias (an OUTPUT layer: the
+        # original GAT applies no nonlinearity to its last layer; train_gat.py uses
+        # this so embeddings are not clamped at -1 by ELU before dot-product scoring)
+        self.activation = activation
         self.num_heads = num_heads
         self.head_dim = head_dim
         self.fc = nn.Linear(in_dim, head_dim * num_heads, bias=False)
@@ -163,7 +167,8 @@ class GATLayer(nn.Module):
             [SpmmEdgeValues.apply(indices, alpha[:, k].contiguous(), n,
                                   h[:, k].contiguous())
              for k in range(self.num_heads)], dim=1)       # [N, H, head_dim]
-        return F.elu(out.reshape(n, -1) + self.bias)       # [N, H * head_dim]
+        out = out.reshape(n, -1) + self.bias                 # [N, H * head_dim]
+        return F.elu(out) if self.activation else out
 
 
 class SemanticAttention(nn.Module):
