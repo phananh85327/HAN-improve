@@ -1,0 +1,20 @@
+python check_edition_twins.py --split-seed 1 --products-csv output/AMAZON/Filtered_Output/filtered_products.csv
+loaded data/AMAZON, split seed 1 (128s): train 2090214 val 261276 test 261276
+
+products: 90659; with an identical reviewer set elsewhere: 41478 (45.8%) in 16907 groups
+group size histogram: 2:12605 3:2689 4:887 5:371 6:152 7:79 8:29 9:27 10:20 11:13 12:11 13:4 14:5 15:4 16:4 17:2 18:1 20:2 22:1 23:1
+U-P edges on such products: 1446539 of 2612766 (55.4%)
+
+largest 8 groups (reviews per member, members):
+  1480 reviews x 2 products: 84652 0613287142 "Harry Potter and the Chamber of Secrets (Harry Potter (Hardc" [Book]; 86101 0786222735 "Harry Potter and the Chamber of Secrets (Thorndike Press Lar" [Book]
+  1150 reviews x 6 products: 31703 B00006IRHB "Harry Potter and the Sorcerer's Stone Gift Set With Fluffy C" [Video]; 43884 B00003CXI1 "Harry Potter and the Sorcerer's Stone (Special Widescreen Ed" [DVD]; 43885 B00003CXI0 "Harry Potter and the Sorcerer's Stone" [Video]; 48700 B00006IRHA "Harry Potter and the Sorcerer's Stone Gift Set With Fluffy C" [DVD]; 77353 B000062TU1 "Harry Potter and the Sorcerer's Stone (Full Screen Edition)" [DVD]; 77354 B000062TU2 "Harry Potter and the Sorcerer's Stone - Spanish Edition" [Video]
+  1060 reviews x 2 products: 80414 B000050XY8 "The Matrix - Limited Edition Collector's Set" [DVD]; 88112 B00000K2SE "The Matrix - Widescreen Collector's Edition" [Video]
+  1030 reviews x 6 products: 27966 0671043013 "Angela's Ashes" [Book]; 31608 067158037X "Angela's Ashes (AUDIO CASSETTE)" [Book]; 55211 156895963X "Angela's Ashes (Wheeler Large Print Press (large print paper" [Book]; 76115 068487217X "Angelas Ashes: A Memoir" [Book]; 82072 1586634690 "Spark Notes Angela's Ashes" [Book]; 86654 068484267X "Angela's Ashes: A Memoir" [Book]
+  989 reviews x 8 products: 5393 0842342702 "Left Behind: A Novel of the Earth's Last Days (Left Behind #" [Book]; 35383 0788749722 "Left Behind: A Novel of the Earth's Last Days (Left Behind, " [Book]; 54602 0842316752 "Left Behind (Left Behind #1)" [Book]; 56056 0842329129 "Left Behind: A Novel of the Earth's Last Days (Left Behind N" [Book]; 59196 0842354204 "Left Behind: A Novel of the Earth's Last Days (Left Behind (" [Book]; 60029 0842343237 "Left Behind: A Novel of the Earth's Last Days (Left Behind, " [Book] ...
+  924 reviews x 2 products: 53165 0764586009 "To Kill a Mockingbird (Cliffs Notes)" [Book]; 59636 006017322X "To Kill a Mockingbird" [Book]
+  822 reviews x 16 products: 7576 1565115511 "Hobbit Cass" [Book]; 11733 156511552X "Hobbit CD Wd Bx" [Book]; 17093 0788789821 "The Hobbit" [Book]; 18779 0618162216 "The Hobbit (Young Adult edition, Sis cover)" [Book]; 24110 0395071224 "The Hobbit" [Book]; 38766 0395362903 "The Hobbit (Illustrated Edition)" [Book] ...
+  804 reviews x 2 products: 30095 0679417397 "1984 (Everyman's Library)" [Book]; 35372 0899663680 "1984" [Book]
+
+val edges whose user has a TRAIN edge to an identical-reviewer-set twin: 131573 of 261276 (50.4%)
+
+test edges whose user has a TRAIN edge to an identical-reviewer-set twin: 131878 of 261276 (50.5%)

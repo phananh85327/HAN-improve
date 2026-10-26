@@ -1,0 +1,79 @@
+Namespace(root='data', dataset='AMAZON', target_relation='U,P', split_seed=1, num_neg_eval=99, in_dim=256, hidden=512, num_heads=8, layers=2, feat_drop=0.2, attn_drop=0.2, no_grad_ckpt=False, vram_fraction=0.9, lr=0.001, weight_decay=0.0, stage=50, patience=5, min_delta=0.0005, batch_size=100000, save_emb='output/AMAZON/gat_s1.pt', eval_only='', gpu=0, cpu=False, seed=1)
+Union graph: 301698 nodes, 8124442 edges (deduped from 8208404, incl. self-loops)
+HomoGAT(
+  (projs): ModuleList(
+    (0): Linear(in_features=504, out_features=256, bias=True)
+    (1): Linear(in_features=128, out_features=256, bias=True)
+    (2): Linear(in_features=64, out_features=256, bias=True)
+  )
+  (gats): ModuleList(
+    (0): GATLayer(
+      (fc): Linear(in_features=256, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (1): GATLayer(
+      (fc): Linear(in_features=512, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+  )
+)
+# Params: 575232
+Checkpoint: ./output/AMAZON/gat_0df1a253efab43b8a25ecbc38dbfaef8.pkl (a crashed run can be salvaged with --eval-only)
+  0%|          | 0/50 [00:00<?, ?it/s]  2%|2         | 1/50 [01:28<1:12:02, 88.22s/it]  4%|4         | 2/50 [02:22<54:31, 68.15s/it]    6%|6         | 3/50 [03:41<57:26, 73.33s/it]  8%|8         | 4/50 [05:03<58:41, 76.56s/it] 10%|#         | 5/50 [08:27<1:31:47, 122.40s/it] 12%|#2        | 6/50 [11:47<1:49:08, 148.83s/it] 14%|#4        | 7/50 [16:22<2:16:22, 190.30s/it] 16%|#6        | 8/50 [19:56<2:18:31, 197.88s/it] 18%|#8        | 9/50 [23:41<2:20:59, 206.32s/it] 20%|##        | 10/50 [24:41<1:47:18, 160.95s/it] 22%|##2       | 11/50 [25:34<1:23:16, 128.11s/it] 24%|##4       | 12/50 [26:27<1:06:41, 105.30s/it] 26%|##6       | 13/50 [27:21<55:12, 89.53s/it]    28%|##8       | 14/50 [28:14<47:05, 78.49s/it] 28%|##8       | 14/50 [29:07<1:14:53, 124.81s/it]
+Epoch 0, train bpr 0.3612, val bpr 0.3110
+Epoch 1, train bpr 0.2575, val bpr 0.2865
+Epoch 2, train bpr 0.2345, val bpr 0.2645
+Epoch 3, train bpr 0.2133, val bpr 0.2466
+Epoch 4, train bpr 0.1907, val bpr 0.2285
+Epoch 5, train bpr 0.1726, val bpr 0.2186
+Epoch 6, train bpr 0.1565, val bpr 0.2065
+Epoch 7, train bpr 0.1361, val bpr 0.1992
+Epoch 8, train bpr 0.1202, val bpr 0.1989
+Epoch 9, train bpr 0.1051, val bpr 0.1912
+Epoch 10, train bpr 0.0930, val bpr 0.2125
+Epoch 11, train bpr 0.0848, val bpr 0.2035
+Epoch 12, train bpr 0.0730, val bpr 0.1936
+Epoch 13, train bpr 0.0662, val bpr 0.2175
+Epoch 14, train bpr 0.0621, val bpr 0.1996
+Early stop at epoch 14 (no val improvement > 0.0005 for 5 epochs)
+average train times 115.09959805806479
+Best epoch 9, val bpr 0.1912
+Test ranking metrics:
+  Precision@5: 0.1361
+  Recall@5: 0.6805
+  NDCG@5: 0.5502
+  Hit@5: 0.6805
+  Precision@10: 0.0791
+  Recall@10: 0.7905
+  NDCG@10: 0.5859
+  Hit@10: 0.7905
+  Precision@20: 0.0442
+  Recall@20: 0.8839
+  NDCG@20: 0.6096
+  Hit@20: 0.8839
+By user training degree:
+  deg=0     (     27 edges)  NDCG@10 0.2733  Hit@10 0.3704
+  deg 1-5   (  54414 edges)  NDCG@10 0.7133  Hit@10 0.8559
+  deg 6-20  (  82735 edges)  NDCG@10 0.6433  Hit@10 0.8278
+  deg>=21   ( 124100 edges)  NDCG@10 0.4918  Hit@10 0.7372
+By duplicate-edition twin in train (identical reviewer sets; 50.5% of eval edges have one):
+  no twin in train ( 129398 edges)  NDCG@10 0.5491  Hit@10 0.7423
+  twin in train    ( 131878 edges)  NDCG@10 0.6220  Hit@10 0.8379
+Per-user ranking metrics (103189 users, positives pooled per user):
+  Precision@5: 0.2211
+  Recall@5: 0.6607
+  NDCG@5: 0.6007
+  Hit@5: 0.7872
+  Precision@10: 0.1338
+  Recall@10: 0.7527
+  NDCG@10: 0.6326
+  Hit@10: 0.8689
+  Precision@20: 0.0787
+  Recall@20: 0.8356
+  NDCG@20: 0.6578
+  Hit@20: 0.9311
+Embeddings saved to output/AMAZON/gat_s1.pt (serve with recommend.py)
