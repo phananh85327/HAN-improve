@@ -3,6 +3,7 @@
 chat/
 logs/
 data/
+output/AMAZON/Filtered_Output/
 preprocessing/
 data_leafcat/
 __pycache__/
