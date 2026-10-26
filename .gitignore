@@ -1,6 +1,6 @@
 *.pt
 data/
-output/
+data_leafcat/
 __pycache__/
 # raw Claude Code transcripts saved by .claude/hooks/save_chat_log.ps1 (keep chat/*.md)
 chat/*.jsonl
