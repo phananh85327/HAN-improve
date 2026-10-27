@@ -196,6 +196,65 @@ def print_stratified(strat):
         print(f'  {name:<{width}} ({res["n_edges"]:>7} edges)  {metrics}')
 
 
+def evaluate_full_ranking(src_emb, dst_emb, edges, known_adj, ks=(10, 20, 50), chunk_size=1024):
+    """Full ranking instead of 99 sampled negatives: each eval edge (u, p) ranks p against
+    EVERY dst node u has no observed edge to (known_adj: CSR of all observed edges, train +
+    val + test; p itself stays in). Ties rank pessimistically, as in evaluate_ranking.
+
+    Per edge, averaged over edges: Hit@k, NDCG@k, MRR. Per user (all of u's eval positives
+    ranked together, macro-averaged over users, the usual all-ranking protocol):
+    UserRecall@k = |top-k with u's eval positives| / |u's eval positives|, UserNDCG@k.
+    Sampled metrics can rank models differently from full ranking (Krichene & Rendle,
+    KDD 2020), so this is the check on the sampled table."""
+    edges = np.asarray(edges)
+    known = known_adj.tocsr()
+    n_dst = dst_emb.shape[0]
+    ranks = np.empty(len(edges), dtype=np.int64)
+    pos = np.empty(len(edges), dtype=np.float64)
+    for start in range(0, len(edges), chunk_size):
+        e = edges[start:start + chunk_size]
+        u = torch.as_tensor(e[:, 0], device=src_emb.device)
+        p = torch.as_tensor(e[:, 1], device=src_emb.device)
+        s = src_emb[u] @ dst_emb.T                                  # [c, n_dst]
+        target = s[torch.arange(len(e), device=s.device), p].clone()
+        sub = known[e[:, 0]].tocoo()                                # the chunk's observed items
+        s[torch.as_tensor(sub.row, device=s.device), torch.as_tensor(sub.col, device=s.device)] = float('-inf')
+        s[torch.arange(len(e), device=s.device), p] = target
+        ranks[start:start + len(e)] = (s >= target[:, None]).sum(1).cpu().numpy()
+        pos[start:start + len(e)] = target.cpu().numpy()
+    out = {'n_edges': len(edges)}
+    for k in ks:
+        hit = ranks <= min(k, n_dst)
+        out[f'Hit@{k}'] = float(hit.mean())
+        out[f'NDCG@{k}'] = float((hit / np.log2(ranks + 1)).mean())
+    out['MRR'] = float((1.0 / ranks).mean())
+    # per user: another eval positive of the same user scoring at least as high is a
+    # candidate too, so it pushes this positive down by one
+    order = np.argsort(edges[:, 0], kind='stable')
+    users = edges[order, 0]
+    starts = np.flatnonzero(np.r_[True, users[1:] != users[:-1]])
+    bounds = np.r_[starts, len(users)]
+    sums = {k: np.zeros(2) for k in ks}
+    for i in range(len(starts)):
+        idx = order[bounds[i]:bounds[i + 1]]
+        sc = pos[idx]
+        r = ranks[idx] + (sc[None, :] >= sc[:, None]).sum(1) - 1
+        for k in ks:
+            top = r <= k
+            idcg = (1.0 / np.log2(np.arange(2, min(len(idx), k) + 2))).sum()
+            sums[k] += (top.sum() / len(idx), (1.0 / np.log2(r[top] + 1)).sum() / idcg)
+    for k in ks:
+        out[f'UserRecall@{k}'], out[f'UserNDCG@{k}'] = (sums[k] / len(starts)).tolist()
+    out['n_users'] = len(starts)
+    return out
+
+
+def print_full_ranking(res):
+    print(f"Full-ranking metrics ({res['n_edges']} edges, {res['n_users']} users; every product the "
+          f"user has no observed edge to is a candidate):")
+    print('  ' + '  '.join(f'{k} {v:.4f}' for k, v in res.items() if not k.startswith('n_')))
+
+
 def report_twin_breakdown(pos_scores, neg_scores, link_split, edges):
     """Print (and return) the duplicate-edition breakdown for the given eval edges.
     Imported lazily to keep han_utils free of a link_data dependency at import time."""

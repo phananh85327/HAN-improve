@@ -179,22 +179,27 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
 - **Semantic-attention extras.** `--semantic-tau` (temperature) and
   `--beta-warmup` (frozen uniform beta) are repo additions; both are off by
   default, but the config of record uses `--beta-warmup 15`.
+- **Initialisation.** Every path's GAT starts from the same weights (the paper does
+  not say; the reference code draws each one separately). With separate random starts
+  the path weights beta followed each path's position in the list, not the path, and
+  reversing the list changed the result (`review/h3_han_model_and_training.md`).
+  `--independent-init` restores separate starts.
 - **Hyperparameters.** Repo defaults are lr 1e-3, no weight decay, dropout 0.2,
   hidden 512 (8 heads x 64), patience 20 with `--min-delta 5e-4`. The paper
   (Sec. 5.3) uses lr 5e-3, L2 1e-3, dropout 0.6, 64-d embeddings, patience 100:
   `--paper-config` applies those.
-- **Product features.** The HGB `node.dat` product features are 504-d binary and
-  very sparse (about a quarter of products have a single active bit, so many
-  products share an identical feature vector); the paper used bag-of-words
-  features. Node-level attention can only separate neighbors whose features
-  differ.
+- **Product features.** In the rebuilt data (LMSPS review part 1) a product's
+  `node.dat` features are 260-d: a 256-d LSA projection of the title plus 4 product
+  group bits. The data before the rebuild had 504-d binary, very sparse features.
+  The paper used bag-of-words features.
 
 ## Files
 
 | file | role |
 |---|---|
 | data_loader.py | HGB .dat parser (verbatim from the HGB benchmark) |
-| link_data.py | edge split + vectorized negative sampling |
+| link_data.py | edge split + vectorized negative sampling; the training-edge fingerprint and data check every run prints and saves |
+| check_handover.py | is this repo's data the data an LMSPS search ran on? (compares with a search record) |
 | han_utils.py | BPR loss, chunked ranking scorer, per-edge/per-user/stratified metrics, seeding |
 | build_metapath_graphs.py | sparse chain-multiply + top-k pruning per meta-path (seeded random tie-break, .meta.json provenance) |
 | check_graph_bias.py | per-id-decile degree audit of built graphs (detects tie-break / hub bias) |
@@ -203,14 +208,19 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
 | model_han.py | GAT-per-path + semantic attention (pure torch, custom SpMM backward, gradient checkpointing) |
 | train_han.py | training / beta warmup / early stopping / evaluation; `--graph-dir` shared graph folder; `--paper-config` for the paper's Sec. 5.3 hyperparameters |
 | train_metapath2vec.py | baseline: meta-path-guided walks + skip-gram (frozen-embedding eval); `--paper-walks` for the HAN paper's walk settings |
-| train_gat.py | baseline: homogeneous GAT on the raw union graph (NO meta-paths); no ELU on the output layer |
-| random_paths.py | seeded random valid meta-paths (ablation baseline; the `amazon_lp_random*` keys in arch.py) |
-| eval_emb.py | recompute all test metrics from saved embeddings, no retraining |
-| summarize_results.py | one table over all saved blobs (val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds |
+| train_gat.py | baseline: homogeneous GAT on the raw union graph (NO meta-paths); no ELU on the output layer; each training step removes its own positive edges from the graph (`--keep-target-edges` = old behaviour) |
+| popularity_baseline.py | baseline: products scored by their number of training users; the floor for every model |
+| random_paths.py | seeded random meta-paths (ablation baseline): schema walks, or `--from-record` draws from an LMSPS search's own candidates |
+| eval_emb.py | recompute all test metrics from saved embeddings, no retraining; skips results from other data; `--full-ranking` |
+| summarize_results.py | one table over all saved blobs (data version, settings variant, val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds; `--full-ranking` |
+| tests/ | `python -m pytest tests` (about a minute on a CPU) |
+| review/ | the HAN repo review (parts H1-H5 so far) |
 | run_all.bat / execute.bat | the complete experiment flow by stage (see "Run flow") |
 | recommend.py | ASIN -> similar products; user -> top-k products |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
 
 Saved embedding blobs (`*_emb.pt`, `<model>_<arch>_s<seed>.pt`) contain P_emb/U_emb plus
 provenance: model, dataset, paths, split_seed, the test metrics (`metrics`, `metrics_twin`),
-`best_val_loss` / `best_epoch` / `epochs_run` / `train_time_s`, and the full run config.
+`best_val_loss` / `best_epoch` / `epochs_run` / `train_time_s`, the data record (`data`:
+meta.json, node counts, training-edge fingerprint), HAN's graph sidecars (`graphs`), and the
+full run config.

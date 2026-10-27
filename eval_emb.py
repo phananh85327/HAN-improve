@@ -16,6 +16,8 @@ Prints, per file:
   - the duplicate-edition breakdown: test edges whose user already has a TRAIN
     edge to a product with an identical reviewer set (another edition of the
     same title) vs the rest. See link_data.product_twin_groups.
+  - with --full-ranking, the same test edges ranked against every product the user
+    has no observed edge to, instead of 99 sampled negatives (han_utils.evaluate_full_ranking).
 
     python eval_emb.py --emb output/AMAZON/han_emb_auto.pt
     python eval_emb.py --emb output/AMAZON/*.pt ../LMSPS/hgb/output/AMAZON/lmsps_emb.pt
@@ -32,7 +34,7 @@ from link_data import build_link_split, edges_fingerprint
 from han_utils import (NODE_TYPE_IDS, score_edges, evaluate_ranking,
                        evaluate_ranking_by_user, print_by_user,
                        evaluate_ranking_stratified, print_stratified,
-                       report_twin_breakdown)
+                       report_twin_breakdown, evaluate_full_ranking, print_full_ranking)
 
 
 def main(args):
@@ -113,6 +115,10 @@ def main(args):
         print('By user training degree:')
         print_stratified(strat)
         report_twin_breakdown(pos_scores, neg_scores, link_split, link_split['test_edges'])
+        if args.full_ranking:
+            with torch.no_grad():
+                print_full_ranking(evaluate_full_ranking(U_emb, P_emb, link_split['test_edges'],
+                                                         link_split['full_adj_src2dst']))
 
 
 def parse_args():
@@ -124,6 +130,9 @@ def parse_args():
     ap.add_argument('--root', type=str, default='data')
     ap.add_argument('--num-neg-eval', type=int, default=99,
                     help='must match the value used at train time')
+    ap.add_argument('--full-ranking', action='store_true',
+                    help='also rank each test edge against every product the user has no observed '
+                         'edge to (a few seconds per model on a GPU, a minute or two on a CPU)')
     ap.add_argument('--gpu', type=int, default=0)
     ap.add_argument('--cpu', action='store_true')
     return ap.parse_args()

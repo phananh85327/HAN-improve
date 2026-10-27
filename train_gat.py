@@ -21,6 +21,13 @@ goes to a softmax, ours to a dot product).
 Same split, BPR training, and 99-negative ranking eval as every other model;
 saves the shared embedding format for recommend.py.
 
+Target edges: the union graph holds every TRAINING user-product edge, so a training
+positive (u, p) is scored by a GAT whose messages run along that very edge, while a test
+edge is never in the graph. Trained that way the GAT learns to rely on the edge and
+overfits within a few epochs. Each training step therefore removes its own positive edges
+(both directions) from the graph it runs on; validation and test use the full training
+graph. --keep-target-edges restores the old behaviour (runs before 2026-10-27).
+
     python train_gat.py --dataset AMAZON --split-seed 1 --stage 150 --patience 10
 
 VRAM: ~8M edges x 8 heads x 2 layers peaks around 8-10 GB on the default config,
@@ -124,6 +131,23 @@ def build_union_edges(dl, type_ids, src_name, dst_name, link_split, device):
     return (src, dst)
 
 
+def make_target_dropper(edges, n_total):
+    """Returns drop(u, p): the union-graph edge list without the edges u->p and p->u of a
+    batch (global ids). Edge keys are sorted once; each call is one searchsorted."""
+    src, dst = edges
+    key = src * n_total + dst
+    key_sorted, key_order = torch.sort(key)
+
+    def drop(u, p):
+        k = torch.cat([u * n_total + p, p * n_total + u])
+        pos = torch.searchsorted(key_sorted, k).clamp(max=key_sorted.numel() - 1)
+        found = key_sorted[pos] == k
+        keep = torch.ones(key.numel(), dtype=torch.bool, device=key.device)
+        keep[key_order[pos[found]]] = False
+        return src[keep], dst[keep]
+    return drop
+
+
 def main(args):
     if args.seed > 0:
         set_random_seed(args.seed)
@@ -143,6 +167,7 @@ def main(args):
     check_data(data_prov, args.split_seed, args.allow_legacy_data)
 
     edges = build_union_edges(dl, type_ids, src_name, dst_name, link_split, device)
+    drop_targets = None if args.keep_target_edges else make_target_dropper(edges, dl.nodes['total'])
 
     n_types = len(dl.nodes['count'])
     type_feats = []
@@ -193,7 +218,10 @@ def main(args):
         for _ in range(iter_num):
             src, pos_dst, neg_dst = train_sampler.sample_batch(args.batch_size)
             optimizer.zero_grad()
-            x = model(edges, type_feats)
+            # the batch's own positive edges leave the graph it is scored on (docstring)
+            step_edges = (edges if drop_targets is None
+                          else drop_targets(src.to(device) + u_lo, pos_dst.to(device) + p_lo))
+            x = model(step_edges, type_feats)
             src_emb = x[src.to(device) + u_lo]
             pos_emb = x[pos_dst.to(device) + p_lo]
             neg_emb = x[neg_dst.to(device) + p_lo]
@@ -204,7 +232,7 @@ def main(args):
         train_times.append(time.time() - start)
         # release the last training batch's tensors before the val forward --
         # x alone is [N, hidden] ~ 620 MB and the card runs near its limit
-        x = src_emb = pos_emb = neg_emb = loss = None
+        x = src_emb = pos_emb = neg_emb = loss = step_edges = None
         if not args.cpu:
             torch.cuda.empty_cache()
 
@@ -316,6 +344,10 @@ def parse_args():
                          '0 restores the strict any-improvement-resets behavior')
     ap.add_argument('--batch-size', type=int, default=100000)
     ap.add_argument('--save-emb', type=str, default='auto')
+    ap.add_argument('--keep-target-edges', action='store_true',
+                    help='train with each batch\'s positive edges left in the message-passing graph '
+                         '(the behaviour before 2026-10-27; the GAT then learns from the edge it is '
+                         'asked to predict)')
     ap.add_argument('--eval-only', type=str, default='',
                     help='path to a saved gat_*.pkl checkpoint: skip training, just evaluate and save embeddings')
     ap.add_argument('--gpu', type=int, default=0)

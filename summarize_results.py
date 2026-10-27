@@ -12,10 +12,15 @@ BPR, and per-edge Hit@10 / NDCG@10 overall, on "twin in train" test edges and on
 before 2026-10-23 lack metrics_twin / best_val_loss and show '-'; rerun
 eval_emb.py on them if those columns are needed. A table that mixes data
 versions prints a warning: rows are comparable only within one version.
+With --full-ranking (needs the data under --root) every run is also ranked against
+all products instead of 99 sampled negatives: hit10_full, ndcg10_full and
+recall20_full (per user). Sampled metrics flatter popularity-like models.
 
 Model selection rule for the thesis: pick the best arch per group by VAL BPR
 (lower is better), never by a test metric. The --group view aggregates runs with
-the same (model, arch, preset, split, data) over run seeds as mean +/- std.
+the same (model, arch, preset, variant, split, data) over run seeds as mean +/- std;
+'variant' lists the settings that differ between runs of one model (e.g.
+beta_warmup=0 vs 15), so different settings are never averaged as if they were seeds.
 
     python summarize_results.py                          # output/AMAZON/*.pt
     python summarize_results.py output/AMAZON/han_*.pt --group --csv logs/results.csv
@@ -77,6 +82,52 @@ def row_from_blob(path, blob):
     }
 
 
+# config entries that do not change what a run computes, or that the table shows elsewhere
+NOT_A_VARIANT = {'seed', 'save_emb', 'gpu', 'cpu', 'vram_fraction', 'root', 'graph_dir', 'dataset',
+                 'arch', 'paths', 'eval_only', 'no_grad_ckpt', 'allow_legacy_data', 'split_seed',
+                 'paper_config', 'paper_walks'}
+
+
+def add_variants(rows, cfgs):
+    """'variant' per row: the config entries that differ between runs of the same model and
+    preset (e.g. beta_warmup=0 vs 15), so different settings are never averaged as seeds."""
+    by_model = {}
+    for r, cfg in zip(rows, cfgs):
+        by_model.setdefault((r['model'], r['preset']), []).append((r, cfg))
+    for members in by_model.values():
+        keys = sorted({k for _, cfg in members for k in cfg} - NOT_A_VARIANT)
+        differ = [k for k in keys if len({repr(cfg.get(k)) for _, cfg in members}) > 1]
+        for r, cfg in members:
+            r['variant'] = ', '.join(f'{k}={cfg.get(k)}' for k in differ) or '-'
+
+
+def add_full_ranking(rows, blobs, root, device):
+    """hit10_full / ndcg10_full / recall20_full per row, from the blob's embeddings and the
+    split rebuilt from the data under root; '-' for a blob trained on other data."""
+    from data_loader import data_loader
+    from link_data import build_link_split, edges_fingerprint
+    from han_utils import NODE_TYPE_IDS, evaluate_full_ranking
+    splits = {}
+    for r, blob in zip(rows, blobs):
+        key = (blob['dataset'], blob.get('target_relation', 'U,P'), blob['split_seed'])
+        if key not in splits:
+            src, dst = key[1].split(',')
+            tids = NODE_TYPE_IDS[key[0]]
+            ls = build_link_split(data_loader(f'{root}/{key[0]}'), tids[src], tids[dst], seed=key[2])
+            splits[key] = (ls, edges_fingerprint(ls['train_edges']))
+        ls, fp = splits[key]
+        same_data = r['data'] == fp if r['data'] != '-' else \
+            (blob['P_emb'].shape[0], blob['U_emb'].shape[0]) == (ls['num_dst'], ls['num_src'])
+        if not same_data:
+            print(f"full ranking skipped for {r['file']}: trained on other data", file=sys.stderr)
+            continue
+        with torch.no_grad():
+            res = evaluate_full_ranking(blob['U_emb'].detach().float().to(device),
+                                        blob['P_emb'].detach().float().to(device),
+                                        ls['test_edges'], ls['full_adj_src2dst'], ks=(10, 20))
+        r['hit10_full'], r['ndcg10_full'], r['recall20_full'] = res['Hit@10'], res['NDCG@10'], res['UserRecall@20']
+
+
 def fmt(v, nd=4):
     if v is None or v == '-':
         return '-'
@@ -85,7 +136,7 @@ def fmt(v, nd=4):
     return str(v)
 
 
-COLS = ['model', 'arch', 'preset', 'split', 'data', 'seed', 'best_epoch', 'val_bpr',
+COLS = ['model', 'arch', 'preset', 'variant', 'split', 'data', 'seed', 'best_epoch', 'val_bpr',
         'hit10', 'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin', 'file']
 
 
@@ -99,12 +150,13 @@ def print_markdown(rows, cols):
 def grouped(rows):
     groups = {}
     for r in rows:
-        groups.setdefault((r['model'], r['arch'], r['preset'], r['split'], r['data']), []).append(r)
+        groups.setdefault((r['model'], r['arch'], r['preset'], r['variant'], r['split'], r['data']), []).append(r)
     out = []
-    for (model, arch, preset, split, data), rs in sorted(groups.items(), key=lambda kv: tuple(map(str, kv[0]))):
-        g = {'model': model, 'arch': arch, 'preset': preset, 'split': split, 'data': data,
-             'n_runs': len(rs), 'seeds': ','.join(str(r['seed']) for r in rs)}
-        for k in ('val_bpr', 'hit10', 'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin'):
+    for (model, arch, preset, variant, split, data), rs in sorted(groups.items(), key=lambda kv: tuple(map(str, kv[0]))):
+        g = {'model': model, 'arch': arch, 'preset': preset, 'variant': variant, 'split': split,
+             'data': data, 'n_runs': len(rs), 'seeds': ','.join(str(r['seed']) for r in rs)}
+        for k in ('val_bpr', 'hit10', 'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin',
+                  'hit10_full', 'ndcg10_full', 'recall20_full'):
             vals = [r[k] for r in rs if isinstance(r.get(k), float)]
             if not vals:
                 g[k] = '-'
@@ -116,7 +168,7 @@ def grouped(rows):
     return out
 
 
-GCOLS = ['model', 'arch', 'preset', 'split', 'data', 'n_runs', 'seeds', 'val_bpr', 'hit10',
+GCOLS = ['model', 'arch', 'preset', 'variant', 'split', 'data', 'n_runs', 'seeds', 'val_bpr', 'hit10',
          'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin']
 
 
@@ -128,6 +180,12 @@ def main():
     ap.add_argument('--group', action='store_true',
                     help='aggregate over run seeds per (model, arch, preset, split)')
     ap.add_argument('--csv', type=str, default='', help='also write the per-run table to this CSV')
+    ap.add_argument('--full-ranking', action='store_true',
+                    help='add full-ranking columns (every product as a candidate); needs the data '
+                         'under --root; seconds per run on a GPU, a minute or two on a CPU')
+    ap.add_argument('--root', type=str, default='data')
+    ap.add_argument('--cpu', action='store_true')
+    ap.add_argument('--gpu', type=int, default=0)
     ap.add_argument('--sort', type=str, default='val_bpr',
                     choices=['val_bpr', 'hit10', 'hit10_notwin', 'model', 'arch'],
                     help='sort key for the per-run table (val_bpr ascending, metrics descending)')
@@ -139,12 +197,22 @@ def main():
     if not paths:
         sys.exit(f'no files match {args.globs}')
 
-    rows = []
+    rows, blobs = [], []
     for p in paths:
         try:
-            rows.append(row_from_blob(p, load_blob(p)))
+            blob = load_blob(p)
+            rows.append(row_from_blob(p, blob))
+            blobs.append(blob)
         except Exception as exc:  # a corrupt or foreign .pt must not kill the table
             print(f'skip {p}: {exc}', file=sys.stderr)
+    add_variants(rows, [b.get('config') or {} for b in blobs])
+    cols, gcols = COLS, GCOLS
+    if args.full_ranking:
+        device = 'cpu' if args.cpu or not torch.cuda.is_available() else f'cuda:{args.gpu}'
+        add_full_ranking(rows, blobs, args.root, device)
+        full = ['hit10_full', 'ndcg10_full', 'recall20_full']
+        cols = COLS[:-1] + full + COLS[-1:]
+        gcols = GCOLS + full
 
     def key(r):
         v = r.get(args.sort)
@@ -164,7 +232,7 @@ def main():
         print(f'WARNING: these runs used {len(versions)} different data versions or splits '
               f"('-' = saved before runs recorded their data); compare rows only within one")
     print()
-    print_markdown(rows, COLS)
+    print_markdown(rows, cols)
     bad = [r for r in rows if r['warnings']]
     if bad:
         print('\nruns with warnings:')
@@ -173,12 +241,12 @@ def main():
 
     if args.group:
         print('\nGrouped over run seeds (mean +/- std where > 1 run):\n')
-        print_markdown(grouped(rows), GCOLS)
+        print_markdown(grouped(rows), gcols)
 
     if args.csv:
         os.makedirs(os.path.dirname(args.csv) or '.', exist_ok=True)
         with open(args.csv, 'w', newline='', encoding='utf-8') as fh:
-            w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+            w = csv.DictWriter(fh, fieldnames=list(dict.fromkeys(k for r in rows for k in r)), restval='-')
             w.writeheader()
             for r in rows:
                 w.writerow(r)

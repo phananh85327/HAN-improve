@@ -48,6 +48,15 @@ from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params, report_twin_breakdown)
 
 
+def graph_sidecar(graph_dir, path, topk, split_seed):
+    """The .meta.json build_metapath_graphs.py writes next to a graph ({} if missing)."""
+    meta_file = os.path.join(graph_dir, f'{path}_top{topk}_split{split_seed}.meta.json')
+    if not os.path.isfile(meta_file):
+        return {}
+    with open(meta_file, encoding='utf-8') as f:
+        return json.load(f)
+
+
 def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device,
                          data_hash, allow_legacy=False):
     """One (src, dst) edge list per path. Graph files are found by name, which does not
@@ -67,11 +76,7 @@ def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device,
         if adj.shape != (num_nodes, num_nodes):
             raise SystemExit(f'{fname} has {adj.shape[0]} nodes but the data has {num_nodes} '
                              f'products: it was built from other data -- {rebuild}')
-        meta_file = stem + '.meta.json'
-        meta = {}
-        if os.path.isfile(meta_file):
-            with open(meta_file, encoding='utf-8') as f:
-                meta = json.load(f)
+        meta = graph_sidecar(graph_dir, p, topk, split_seed)
         built_on = meta.get('train_edges_hash')
         if built_on != data_hash:
             if built_on is not None:
@@ -192,7 +197,8 @@ def main(args):
     model = HAN_LP(len(paths), p_feat.shape[1], args.hidden, args.num_heads,
                    args.feat_drop, args.attn_drop,
                    semantic_tau=args.semantic_tau,
-                   grad_ckpt=not args.no_grad_ckpt).to(device)
+                   grad_ckpt=not args.no_grad_ckpt,
+                   symmetric_init=not args.independent_init).to(device)
     if args.user_tower == 'embedding':
         tower = UserEmbeddingTower(link_split['num_src'], args.hidden).to(device)
     else:
@@ -321,7 +327,9 @@ def main(args):
                     'metrics': results, 'metrics_twin': twin,
                     'best_val_loss': best_val_loss, 'best_epoch': best_epoch,
                     'epochs_run': epochs_run, 'train_time_s': float(sum(train_times)),
-                    'data': data_prov, 'config': vars(args)}, save_path)
+                    'data': data_prov,
+                    'graphs': {p: graph_sidecar(graph_dir, p, args.topk, args.split_seed) for p in paths},
+                    'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     os.remove(f'{checkpt_file}.pkl')
     return results
@@ -365,6 +373,10 @@ def parse_args():
                          'rich-get-richer collapse where paths scored low at init never receive '
                          'gradient. Best-checkpoint/early-stop tracking starts after warmup. '
                          '0 = off (paper-faithful)')
+    ap.add_argument('--independent-init', action='store_true',
+                    help='start every path\'s GAT from its own random weights (the behaviour before '
+                         '2026-10-27). By default all GATs start from the same weights, so the path '
+                         'weights and the result do not depend on the order of the paths in the list')
     ap.add_argument('--no-grad-ckpt', action='store_true',
                     help='disable gradient checkpointing of the per-path GATs. Checkpointing is ON '
                          'by default: it cuts peak training VRAM by several GB (recomputes GAT '

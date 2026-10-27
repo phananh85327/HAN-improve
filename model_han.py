@@ -14,6 +14,13 @@ is replaced by returning the fused embedding, exactly as the LMSPS models do for
 Repo additions that are NOT in the paper and are OFF by default:
   - SemanticAttention.tau (softmax temperature; 1.0 = paper),
   - SemanticAttention.force_uniform (train_han.py --beta-warmup; 0 = paper).
+Initialisation (ON by default, train_han.py --independent-init turns it off): every
+path's GAT starts from the same weights, so the model treats the paths alike until their
+graphs separate them (the semantic attention applies one function to every path anyway).
+With an independent random start per GAT, the path weights beta followed each path's
+POSITION in the list rather than the path: reversing the list dropped a different path,
+and without the warm-up the path at a favoured position took all the weight (HAN review
+part H3).
 Other deliberate departures (pruned/symmetrized meta-path neighbor graphs, a
 separate user tower, the repo's default hidden/dropout/lr) are documented in
 README.md "Deviations from the paper"; train_han.py --paper-config restores the
@@ -212,7 +219,8 @@ class HAN_LP(nn.Module):
     target-node embedding [N, hidden] (hidden = num_heads * per-head dim)."""
 
     def __init__(self, num_metapaths, in_dim, hidden, num_heads=8,
-                 feat_drop=0.2, attn_drop=0.2, semantic_tau=1.0, grad_ckpt=False):
+                 feat_drop=0.2, attn_drop=0.2, semantic_tau=1.0, grad_ckpt=False,
+                 symmetric_init=True):
         super().__init__()
         assert hidden % num_heads == 0, 'hidden must be divisible by num-heads'
         self.grad_ckpt = grad_ckpt
@@ -222,6 +230,11 @@ class HAN_LP(nn.Module):
             for _ in range(num_metapaths)
         ])
         self.semantic = SemanticAttention(hidden, tau=semantic_tau)
+        if symmetric_init:
+            # no path favoured by its place in the list (module docstring): the GATs
+            # differ only in the graphs they run on
+            for gat in self.gats[1:]:
+                gat.load_state_dict(self.gats[0].state_dict())
 
     def forward(self, graphs, feat):
         # graphs: list of (src, dst) LongTensor pairs (self-loops included);

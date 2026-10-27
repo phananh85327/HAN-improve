@@ -160,12 +160,12 @@ def test_builder_stops_on_legacy_data():
         assert code != 0 and 'meta.json' in out, out
 
 
-def _blob(path, data_hash, n_p=N_P, n_u=N_U, seed=1, hit=0.5):
+def _blob(path, data_hash, n_p=N_P, n_u=N_U, seed=1, hit=0.5, **config):
     torch.save({'model': 'HAN', 'dataset': 'AMAZON', 'target_relation': 'U,P', 'paths': ['PUP'],
                 'split_seed': 1, 'P_emb': torch.randn(n_p, 4), 'U_emb': torch.randn(n_u, 4),
                 'metrics': {'Hit@10': hit}, 'best_val_loss': 0.3,
                 'data': None if data_hash is None else {'train_edges_hash': data_hash},
-                'config': {'arch': 'amazon_lp_x', 'seed': seed}}, path)
+                'config': {'arch': 'amazon_lp_x', 'seed': seed, 'beta_warmup': 15, **config}}, path)
 
 
 def test_summary_keeps_data_versions_apart():
@@ -180,6 +180,20 @@ def test_summary_keeps_data_versions_apart():
         os.remove(os.path.join(tmp, 'old.pt'))
         code, out = run('summarize_results.py', os.path.join(tmp, '*.pt'))
         assert 'WARNING' not in out, out
+
+
+def test_summary_keeps_settings_apart():
+    with tempfile.TemporaryDirectory() as tmp:
+        for seed in (1, 2):
+            _blob(os.path.join(tmp, f'w15_s{seed}.pt'), 'abcd', seed=seed, hit=0.80 + seed / 100)
+        _blob(os.path.join(tmp, 'w0_s1.pt'), 'abcd', seed=1, hit=0.70, beta_warmup=0)
+        _blob(os.path.join(tmp, 'w15_s3_gpu1.pt'), 'abcd', seed=3, hit=0.83, gpu=1)   # not a setting
+        code, out = run('summarize_results.py', os.path.join(tmp, '*.pt'), '--group')
+        assert code == 0, out
+        rows = [l for l in out.split('Grouped over run seeds')[1].splitlines() if l.startswith('| HAN')]
+        assert len(rows) == 2, rows
+        assert any('beta_warmup=0' in l and '| 1 | 1 |' in l for l in rows), rows
+        assert any('beta_warmup=15' in l and '| 3 | 1,2,3 |' in l for l in rows), rows
 
 
 def test_eval_emb_skips_results_from_other_data():
