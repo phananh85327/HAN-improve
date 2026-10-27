@@ -39,11 +39,17 @@ archs = {
     # not necessarily any run's pick. Core relations {PPUPUP, PUPPUP, PUPUP}
     # appear in nearly every pick; the remaining slots are fillers with ~0
     # marginal effect. Downstream MUST use --split-seed 1. Chat log #18, Add. 9-10.
+    # SUPERSEDED (2026-10-26): every Fleet v2 set below was searched on the pre-fix AMAZON
+    # data (edition duplicates: 73% of val/test edges had a copy in train; placeholder
+    # customer ATVPDKIKX0DER on 61% of products). Re-run the search on the rebuilt data
+    # before using them -- review/part1_data_pipeline.md.
 
+    # every path of the 13 shortlist sets below, once: building HAN graphs for this key
+    # covers all of them (graph files are per path)
     "amazon_lp_unique_strings": [
         ['PCCPUP', 'PCPPUP', 'PCPUP', 'PCPUPP', 'PPCPUP', 'PPPPUP', 'PPPUP', 'PPPUPP', 'PPUP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
     # ns 4 shortlist (6 sets); _c is also the most frequent pick
-    "amazon_lp_f4_s1": [          # x5, consensus (= LMSPS repo key amazon_lp_f4_c)
+    "amazon_lp_f4_s1": [          # x5, consensus
         ['PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
     "amazon_lp_f4_s2": [         # x4
         ['PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
@@ -63,7 +69,7 @@ archs = {
         ['PPCPUP', 'PPPPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
     "amazon_lp_f6_s3": [         # x2
         ['PPPPUP', 'PPPUPP', 'PPUP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
-    "amazon_lp_f6_s4": [          # x2, consensus (= LMSPS repo key amazon_lp_f6_c)
+    "amazon_lp_f6_s4": [          # x2, consensus
         ['PPPPUP', 'PPPUPP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
     "amazon_lp_f6_s5": [         # x2
         ['PPCPUP', 'PPPUPP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
@@ -71,21 +77,27 @@ archs = {
         ['PPPPUP', 'PPUP', 'PPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
     "amazon_lp_f6_s7": [         # x2
         ['PPPPUP', 'PPPUP', 'PPPUPP', 'PPUPUP', 'PUPPUP', 'PUPUP'], []],
-    # ---- random-path ablation rows (2026-10-23): schema-valid random P...P walks
-    # of length 4-6 letters, reverse-deduplicated, from
-    #   python random_paths.py --num 4 --min-len 4 --max-len 6 --seed 0
-    #   python random_paths.py --num 6 --min-len 4 --max-len 6 --seed 0
-    # (the 6-set extends the 4-set: same RNG stream). Same path budget as the ns-4 /
-    # ns-6 discovered sets, so "discovered vs random" compares path QUALITY only.
-    "amazon_lp_random4_s0": [
-        ['PUPUP', 'PPPUP', 'PPUPCP', 'PCCCP'], []],
-    "amazon_lp_random6_s0": [
-        ['PUPUP', 'PPPUP', 'PPUPCP', 'PCCCP', 'PPUPUP', 'PUPP'], []],
+    # Manual meta-path sets
+    "amazon_lp_manual_1": [
+        ['PUP', 'PCP'], []],
+    "amazon_lp_manual_2": [
+        ['PP', 'PUP', 'PCP'], []],
+    "amazon_lp_manual_3": [
+        ['PP', 'PUP', 'PPUP'], []],
+    "amazon_lp_manual_4": [
+        ['PCP', 'PCCCP', 'PCPCP'], []],
+    "amazon_lp_manual_5": [
+        ['PP', 'PUP', 'PCP', 'PPUP'], []],
+    "amazon_lp_manual_6": [
+        ['PP', 'PUP', 'PCP', 'PPUP', 'PPP', 'PCCCP'], []],
+    "amazon_lp_manual_7": [
+        ['PP', 'PPP', 'PUP', 'PCP'], []],
+    "amazon_lp_manual_8": [
+        ['PUP', 'PCP', 'PUPUP', 'PCPUP'], []],
 }
 
-# Aliases matching the keys the LMSPS repo (hgb/arch.py, reselect_fleet.py output)
-# uses for the assembled path-frequency consensus, so thesis tables built from
-# either repo's logs line up. Same list objects, so graphs built for the _sN key
-# serve the _c key unchanged (graph files are per path, not per arch).
+# reselect_fleet.py names the vote's consensus <prefix>_c, and the README and the HAN repo
+# use those names; the Fleet v2 entries above were pasted with the consensus as a
+# numbered set. Same list objects, so either key gives the same paths.
 archs["amazon_lp_f4_c"] = archs["amazon_lp_f4_s1"]
 archs["amazon_lp_f6_c"] = archs["amazon_lp_f6_s4"]
