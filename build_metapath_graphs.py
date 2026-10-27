@@ -35,11 +35,14 @@ train_han.py can warn when it loads a legacy graph.
 
 Usage (from han-recsys/):
     python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_han \
-        --topk 20 --split-seed 0 --target-relation "U,P"
+        --topk 20 --split-seed 1 --target-relation "U,P"
 
 Output: data/<dataset>/metapath_graphs/<path>_top<k>_split<seed>.npz (scipy CSR,
 binary, no self-loops -- train_han.py adds self-loops when building DGL graphs)
-plus <same stem>.meta.json (tie_break, tie_seed, topk, split_seed, nnz, isolated).
+plus <same stem>.meta.json (tie_break, tie_seed, topk, split_seed, nnz, isolated,
+num_train_edges, train_edges_hash). The file name does not change with the data, so
+train_han.py refuses a graph whose training-edge fingerprint is not the current one,
+and --skip-existing rebuilds such a graph instead of skipping it.
 """
 
 import argparse
@@ -50,7 +53,7 @@ import numpy as np
 import scipy.sparse as sp
 
 from data_loader import data_loader
-from link_data import build_link_split
+from link_data import build_link_split, data_provenance, check_data
 
 # letter codes per dataset, matching utils.py::NODE_TYPE_IDS (kept local so this
 # script does not import utils.py's full torch/dgl stack)
@@ -165,8 +168,10 @@ def main():
     ap.add_argument('--topk', type=int, default=20,
                     help='max neighbors kept per row (by walk count) at every chain step')
     ap.add_argument('--target-relation', type=str, default='U,P')
-    ap.add_argument('--split-seed', type=int, default=0,
-                    help='MUST match the --split-seed used for search/retrain')
+    ap.add_argument('--split-seed', type=int, default=1,
+                    help='MUST match the --split-seed of the search (the LMSPS fleets use 1)')
+    ap.add_argument('--allow-legacy-data', action='store_true',
+                    help='run on data without meta.json (from before the AMAZON rebuild) instead of stopping')
     ap.add_argument('--num-neg-eval', type=int, default=99)
     ap.add_argument('--tie-break', type=str, default='random', choices=['random', 'id'],
                     help='how top-k pruning resolves equal walk counts. "random": seeded '
@@ -181,8 +186,9 @@ def main():
                          'value to train_han.py --graph-dir')
     ap.add_argument('--skip-existing', action='store_true',
                     help='skip a path whose .npz and .meta.json already exist in the output '
-                         'directory (same top-k / split seed), so arches sharing paths can be '
-                         'built into one directory without redoing work')
+                         'directory and were built with the same settings from the same training '
+                         'edges, so arches sharing paths can be built into one directory without '
+                         'redoing work. A graph built from other data is rebuilt')
     args = ap.parse_args()
     if args.tie_seed is None:
         args.tie_seed = args.split_seed
@@ -208,17 +214,28 @@ def main():
     print(f'Building train-only split (seed {args.split_seed}) ...')
     link_split = build_link_split(dl, type_ids[src_name], type_ids[dst_name],
                                   seed=args.split_seed, num_neg_eval=args.num_neg_eval)
+    prov = data_provenance(os.path.join(args.root, args.dataset), dl, link_split)
+    check_data(prov, args.split_seed, args.allow_legacy_data)
     base = build_base_matrices(dl, args.dataset, link_split)
 
     out_dir = args.graph_dir or os.path.join(args.root, args.dataset, 'metapath_graphs')
     os.makedirs(out_dir, exist_ok=True)
+    # what a graph depends on besides its path; --skip-existing keeps a graph only if all match
+    settings = {'topk': args.topk, 'split_seed': args.split_seed, 'tie_break': args.tie_break,
+                'tie_seed': args.tie_seed if args.tie_break == 'random' else None,
+                'num_train_edges': len(link_split['train_edges']),
+                'train_edges_hash': prov['train_edges_hash']}
 
     for p in paths:
         stem = os.path.join(out_dir, f'{p}_top{args.topk}_split{args.split_seed}')
         fname = stem + '.npz'
         if args.skip_existing and os.path.isfile(fname) and os.path.isfile(stem + '.meta.json'):
-            print(f'Skipping {p}: {fname} exists')
-            continue
+            with open(stem + '.meta.json', encoding='utf-8') as f:
+                old = json.load(f)
+            if all(old.get(k) == v for k, v in settings.items()):
+                print(f'Skipping {p}: {fname} exists')
+                continue
+            print(f'Rebuilding {p}: {fname} was built from other data or with other settings')
         print(f'Materializing {p} (topk {args.topk}, tie-break {args.tie_break}) ...')
         # one generator per path, re-seeded from the same seed: a path's graph does
         # not depend on which other paths were built in the same invocation
@@ -227,9 +244,7 @@ def main():
         adj = materialize_path(p, base, args.topk, rng=rng)
         isolated = int((np.diff(adj.indptr) == 0).sum())
         sp.save_npz(fname, adj)
-        meta = {'path': p, 'topk': args.topk, 'split_seed': args.split_seed,
-                'tie_break': args.tie_break,
-                'tie_seed': args.tie_seed if args.tie_break == 'random' else None,
+        meta = {'path': p, **settings,
                 'num_nodes': int(adj.shape[0]), 'nnz': int(adj.nnz), 'isolated': isolated}
         with open(stem + '.meta.json', 'w', encoding='utf-8') as f:
             json.dump(meta, f, indent=2)

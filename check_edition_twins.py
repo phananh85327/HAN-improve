@@ -47,7 +47,8 @@ def main():
     ap.add_argument('--root', type=str, default='data')
     ap.add_argument('--dataset', type=str, default='AMAZON')
     ap.add_argument('--target-relation', type=str, default='U,P')
-    ap.add_argument('--split-seed', type=int, default=0)
+    ap.add_argument('--split-seed', type=int, default=1,
+                    help='the split the runs use (the LMSPS fleets use 1)')
     ap.add_argument('--num-neg-eval', type=int, default=99)
     ap.add_argument('--products-csv', type=str, default='',
                     help='filtered_products.csv to print titles of the largest groups')

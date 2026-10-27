@@ -9,6 +9,8 @@ dict keys to patch before meta-path propagation) lives in train_search.py/main_p
 """
 
 import hashlib
+import json
+import os
 
 import numpy as np
 import scipy.sparse as sp
@@ -177,6 +179,49 @@ def build_link_split(dl, src_type, dst_type, seed=0, val_ratio=0.1, test_ratio=0
     }
 
 
+def edges_fingerprint(edges):
+    """Order-free short hash of an edge set [N, 2]. Same function as the LMSPS repo's
+    link_data.py: over the training edges it changes with the data and with the split,
+    and it is the fingerprint every LMSPS search record stores."""
+    e = np.unique(np.asarray(edges, dtype=np.int64).reshape(-1, 2), axis=0)
+    return hashlib.blake2b(e.tobytes(), digest_size=8).hexdigest()
+
+
+def data_provenance(data_dir, dl, link_split):
+    """What a run used, for its saved blob (same fields as the LMSPS search records):
+    dat_generator.py's meta.json (None for data built before it existed), node counts,
+    the number of target edges and a fingerprint of the training edges."""
+    meta_file = os.path.join(data_dir, 'meta.json')
+    meta = None
+    if os.path.isfile(meta_file):
+        with open(meta_file, encoding='utf-8') as f:
+            meta = json.load(f)
+    return {'dir': data_dir, 'meta': meta,
+            'node_counts': {int(t): int(c) for t, c in dl.nodes['count'].items()},
+            'num_target_edges': int(link_split['full_adj_src2dst'].nnz),
+            'train_edges_hash': edges_fingerprint(link_split['train_edges'])}
+
+
+def check_data(prov, split_seed, allow_legacy=False):
+    """Print what the run uses and stop on data from before the AMAZON rebuild.
+
+    The rebuilt data (LMSPS repo, data/AMAZON) carries dat_generator.py's meta.json; the
+    data the earlier runs used has none. The fingerprint is the one the LMSPS search
+    records (check_handover.py compares the two)."""
+    meta = prov['meta']
+    built = ('no meta.json' if meta is None else
+             f"{meta.get('title_features')} {meta.get('title_dim')}-d titles, "
+             f"{meta.get('category_links')} categories")
+    print(f"data: {prov['dir']} ({built}), nodes per type {prov['node_counts']}; split {split_seed}: "
+          f"training-edge fingerprint {prov['train_edges_hash']}")
+    if meta is None:
+        msg = (f"{prov['dir']} has no meta.json, so it is the AMAZON data from before the rebuild "
+               f"(edition duplicates and placeholder customers). Copy the rebuilt data/AMAZON from the "
+               f"LMSPS repo and delete the graphs built from the old data, or pass "
+               f"--allow-legacy-data to use this data on purpose.")
+        if not allow_legacy:
+            raise SystemExit(msg)
+        print('WARNING: ' + msg)
 
 
 class TrainEdgeSampler:

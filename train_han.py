@@ -40,7 +40,7 @@ import torch
 from tqdm import tqdm
 
 from data_loader import data_loader
-from link_data import build_link_split, TrainEdgeSampler
+from link_data import build_link_split, TrainEdgeSampler, data_provenance, check_data
 from model_han import HAN_LP, ShallowNodeTower, UserEmbeddingTower
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        evaluate_ranking_stratified, print_stratified,
@@ -48,9 +48,15 @@ from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params, report_twin_breakdown)
 
 
-def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device):
+def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device,
+                         data_hash, allow_legacy=False):
+    """One (src, dst) edge list per path. Graph files are found by name, which does not
+    change with the data, so each graph's .meta.json must carry this run's training-edge
+    fingerprint (data_hash): a graph built from other data or another split stops the
+    run. allow_legacy: a graph from before the fingerprint existed only warns."""
     graphs = []
     loop = torch.arange(num_nodes, dtype=torch.long)
+    rebuild = 'rebuild it with build_metapath_graphs.py (same --split-seed/--topk)'
     for p in paths:
         stem = os.path.join(graph_dir, f'{p}_top{topk}_split{split_seed}')
         fname = stem + '.npz'
@@ -58,16 +64,31 @@ def load_metapath_graphs(graph_dir, paths, topk, split_seed, num_nodes, device):
             raise SystemExit(f'missing {fname} -- run build_metapath_graphs.py first '
                              f'with the same --paths/--topk/--split-seed')
         adj = sp.load_npz(fname).tocoo()
+        if adj.shape != (num_nodes, num_nodes):
+            raise SystemExit(f'{fname} has {adj.shape[0]} nodes but the data has {num_nodes} '
+                             f'products: it was built from other data -- {rebuild}')
+        meta_file = stem + '.meta.json'
+        meta = {}
+        if os.path.isfile(meta_file):
+            with open(meta_file, encoding='utf-8') as f:
+                meta = json.load(f)
+        built_on = meta.get('train_edges_hash')
+        if built_on != data_hash:
+            if built_on is not None:
+                raise SystemExit(f'{fname} was built from other training edges (fingerprint '
+                                 f'{built_on}, this run {data_hash}): other data or another '
+                                 f'split -- {rebuild}')
+            msg = f'{fname} does not record which data it was built from -- {rebuild}'
+            if not allow_legacy:
+                raise SystemExit(msg)
+            print('  WARNING: ' + msg)
         # (src, dst) edge list with self-loops appended; pure torch tensors, so the
         # CPU-only dgl wheel in this env is never asked to move a graph to CUDA
         src = torch.cat([torch.from_numpy(adj.row.astype(np.int64)), loop]).to(device)
         dst = torch.cat([torch.from_numpy(adj.col.astype(np.int64)), loop]).to(device)
         graphs.append((src, dst))
-        # provenance sidecar written by build_metapath_graphs.py (tie-break mode)
-        meta_file = stem + '.meta.json'
-        if os.path.isfile(meta_file):
-            with open(meta_file, encoding='utf-8') as f:
-                meta = json.load(f)
+        # tie-break mode from the sidecar written by build_metapath_graphs.py
+        if meta:
             prov = f"tie-break {meta.get('tie_break')}"
             if meta.get('tie_seed') is not None:
                 prov += f" (seed {meta['tie_seed']})"
@@ -140,6 +161,8 @@ def main(args):
     dl = data_loader(f'{args.root}/{args.dataset}')
     link_split = build_link_split(dl, type_ids[src_name], type_ids[dst_name],
                                   seed=args.split_seed, num_neg_eval=args.num_neg_eval)
+    data_prov = data_provenance(os.path.join(args.root, args.dataset), dl, link_split)
+    check_data(data_prov, args.split_seed, args.allow_legacy_data)
 
     p_feat = torch.FloatTensor(dl.nodes['attr'][type_ids[dst_name]]).to(device)
     if args.user_tower == 'feats':
@@ -155,7 +178,8 @@ def main(args):
     graph_dir = args.graph_dir or os.path.join(args.root, args.dataset, 'metapath_graphs')
     print(f'Loading meta-path graphs from {graph_dir}:')
     graphs = load_metapath_graphs(graph_dir, paths, args.topk, args.split_seed,
-                                  link_split['num_dst'], device)
+                                  link_split['num_dst'], device,
+                                  data_prov['train_edges_hash'], args.allow_legacy_data)
 
     train_sampler = TrainEdgeSampler(link_split['train_edges'],
                                      link_split['train_adj_src2dst'], seed=args.seed)
@@ -297,7 +321,7 @@ def main(args):
                     'metrics': results, 'metrics_twin': twin,
                     'best_val_loss': best_val_loss, 'best_epoch': best_epoch,
                     'epochs_run': epochs_run, 'train_time_s': float(sum(train_times)),
-                    'config': vars(args)}, save_path)
+                    'data': data_prov, 'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     os.remove(f'{checkpt_file}.pkl')
     return results
@@ -321,8 +345,11 @@ def parse_args():
                          '<root>/<dataset>/metapath_graphs). Graph files are per path, so one '
                          'directory with every path built (e.g. data/AMAZON/metapath_graphs_all_unique) '
                          'serves every --arch without renaming folders')
-    ap.add_argument('--split-seed', type=int, default=0,
-                    help='must match the search/retrain/build --split-seed')
+    ap.add_argument('--split-seed', type=int, default=1,
+                    help='must match the search and build --split-seed (the LMSPS fleets use 1)')
+    ap.add_argument('--allow-legacy-data', action='store_true',
+                    help='run on data without meta.json (from before the AMAZON rebuild), and on '
+                         'graphs that do not record their data, instead of stopping')
     ap.add_argument('--num-neg-eval', type=int, default=99)
     ap.add_argument('--hidden', type=int, default=512)
     ap.add_argument('--num-heads', type=int, default=8)

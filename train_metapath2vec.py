@@ -35,7 +35,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from data_loader import data_loader
-from link_data import build_link_split
+from link_data import build_link_split, data_provenance, check_data
 from build_metapath_graphs import build_base_matrices
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params,
@@ -109,6 +109,8 @@ def main(args):
     dl = data_loader(f'{args.root}/{args.dataset}')
     link_split = build_link_split(dl, type_ids[src_name], type_ids[dst_name],
                                   seed=args.split_seed, num_neg_eval=args.num_neg_eval)
+    data_prov = data_provenance(os.path.join(args.root, args.dataset), dl, link_split)
+    check_data(data_prov, args.split_seed, args.allow_legacy_data)
     base = build_base_matrices(dl, args.dataset, link_split)
     shifts = {name: dl.nodes['shift'][tid] for name, tid in type_ids.items()}
     counts = {name: dl.nodes['count'][tid] for name, tid in type_ids.items()}
@@ -284,7 +286,7 @@ def main(args):
                     'best_val_loss': best_val, 'best_epoch': best_epoch,
                     'epochs_run': args.epochs if not stop else int(best_epoch) + 1,
                     'train_time_s': float(train_time_s), 'warnings': warnings,
-                    'config': vars(args)}, save_path)
+                    'data': data_prov, 'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     return results
 
@@ -300,7 +302,10 @@ def parse_args():
                     help='comma-separated walk templates (overrides --arch)')
     ap.add_argument('--arch', type=str, default='',
                     help='arch.py key holding the discovered path list')
-    ap.add_argument('--split-seed', type=int, default=0)
+    ap.add_argument('--split-seed', type=int, default=1,
+                    help='must match the search --split-seed (the LMSPS fleets use 1)')
+    ap.add_argument('--allow-legacy-data', action='store_true',
+                    help='run on data without meta.json (from before the AMAZON rebuild) instead of stopping')
     ap.add_argument('--num-neg-eval', type=int, default=99)
     ap.add_argument('--dim', type=int, default=512)
     ap.add_argument('--walks-per-node', type=int, default=5,

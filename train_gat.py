@@ -50,7 +50,7 @@ from torch.utils.checkpoint import checkpoint
 from tqdm import tqdm
 
 from data_loader import data_loader
-from link_data import build_link_split, TrainEdgeSampler
+from link_data import build_link_split, TrainEdgeSampler, data_provenance, check_data
 from model_han import GATLayer
 from han_utils import (NODE_TYPE_IDS, bpr_loss, score_edges, evaluate_ranking,
                        set_random_seed, get_n_params,
@@ -139,6 +139,8 @@ def main(args):
     dl = data_loader(f'{args.root}/{args.dataset}')
     link_split = build_link_split(dl, type_ids[src_name], type_ids[dst_name],
                                   seed=args.split_seed, num_neg_eval=args.num_neg_eval)
+    data_prov = data_provenance(os.path.join(args.root, args.dataset), dl, link_split)
+    check_data(data_prov, args.split_seed, args.allow_legacy_data)
 
     edges = build_union_edges(dl, type_ids, src_name, dst_name, link_split, device)
 
@@ -272,7 +274,7 @@ def main(args):
                     'U_emb': U_emb.cpu(), 'metrics': results, 'metrics_twin': twin,
                     'best_val_loss': best_val_loss, 'best_epoch': best_epoch,
                     'epochs_run': epochs_run, 'train_time_s': float(sum(train_times)),
-                    'config': vars(args)}, save_path)
+                    'data': data_prov, 'config': vars(args)}, save_path)
         print(f'Embeddings saved to {save_path} (serve with recommend.py)')
     if not args.eval_only:
         os.remove(f'{checkpt_file}.pkl')
@@ -286,7 +288,10 @@ def parse_args():
     ap.add_argument('--root', type=str, default='data')
     ap.add_argument('--dataset', type=str, default='AMAZON')
     ap.add_argument('--target-relation', type=str, default='U,P')
-    ap.add_argument('--split-seed', type=int, default=0)
+    ap.add_argument('--split-seed', type=int, default=1,
+                    help='must match the search --split-seed (the LMSPS fleets use 1)')
+    ap.add_argument('--allow-legacy-data', action='store_true',
+                    help='run on data without meta.json (from before the AMAZON rebuild) instead of stopping')
     ap.add_argument('--num-neg-eval', type=int, default=99)
     ap.add_argument('--in-dim', type=int, default=256,
                     help='per-type projection dim before the first GAT layer')

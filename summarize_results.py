@@ -4,16 +4,18 @@
 Collect every saved embedding blob (*_emb*.pt written by train_han.py,
 train_metapath2vec.py, train_gat.py) into one results table.
 
-Per blob: model, arch key (config.arch, else the path list), split seed, run
-seed, preset flags (--paper-config / --paper-walks), best epoch, best VAL BPR,
-and per-edge Hit@10 / NDCG@10 overall, on "twin in train" test edges and on
+Per blob: model, arch key (config.arch, else the path list), split seed, data
+(the training-edge fingerprint the run recorded; '-' = saved before runs recorded
+it), run seed, preset flags (--paper-config / --paper-walks), best epoch, best VAL
+BPR, and per-edge Hit@10 / NDCG@10 overall, on "twin in train" test edges and on
 "no twin in train" edges (see link_data.product_twin_groups). Blobs written
 before 2026-10-23 lack metrics_twin / best_val_loss and show '-'; rerun
-eval_emb.py on them if those columns are needed.
+eval_emb.py on them if those columns are needed. A table that mixes data
+versions prints a warning: rows are comparable only within one version.
 
 Model selection rule for the thesis: pick the best arch per group by VAL BPR
 (lower is better), never by a test metric. The --group view aggregates runs with
-the same (model, arch, preset) over run seeds as mean +/- std.
+the same (model, arch, preset, split, data) over run seeds as mean +/- std.
 
     python summarize_results.py                          # output/AMAZON/*.pt
     python summarize_results.py output/AMAZON/han_*.pt --group --csv logs/results.csv
@@ -60,6 +62,7 @@ def row_from_blob(path, blob):
         'n_paths': len(paths),
         'preset': '+'.join(preset) or '-',
         'split': blob.get('split_seed', '-'),
+        'data': (blob.get('data') or {}).get('train_edges_hash') or '-',
         'seed': cfg.get('seed', '-'),
         'best_epoch': be if be is not None else '-',
         'val_bpr': bv if bv is not None else None,
@@ -82,7 +85,7 @@ def fmt(v, nd=4):
     return str(v)
 
 
-COLS = ['model', 'arch', 'preset', 'split', 'seed', 'best_epoch', 'val_bpr',
+COLS = ['model', 'arch', 'preset', 'split', 'data', 'seed', 'best_epoch', 'val_bpr',
         'hit10', 'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin', 'file']
 
 
@@ -96,10 +99,10 @@ def print_markdown(rows, cols):
 def grouped(rows):
     groups = {}
     for r in rows:
-        groups.setdefault((r['model'], r['arch'], r['preset'], r['split']), []).append(r)
+        groups.setdefault((r['model'], r['arch'], r['preset'], r['split'], r['data']), []).append(r)
     out = []
-    for (model, arch, preset, split), rs in sorted(groups.items()):
-        g = {'model': model, 'arch': arch, 'preset': preset, 'split': split,
+    for (model, arch, preset, split, data), rs in sorted(groups.items(), key=lambda kv: tuple(map(str, kv[0]))):
+        g = {'model': model, 'arch': arch, 'preset': preset, 'split': split, 'data': data,
              'n_runs': len(rs), 'seeds': ','.join(str(r['seed']) for r in rs)}
         for k in ('val_bpr', 'hit10', 'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin'):
             vals = [r[k] for r in rs if isinstance(r.get(k), float)]
@@ -113,8 +116,8 @@ def grouped(rows):
     return out
 
 
-GCOLS = ['model', 'arch', 'preset', 'split', 'n_runs', 'seeds', 'val_bpr', 'hit10', 'ndcg10',
-         'hit10_twin', 'hit10_notwin', 'ndcg10_notwin']
+GCOLS = ['model', 'arch', 'preset', 'split', 'data', 'n_runs', 'seeds', 'val_bpr', 'hit10',
+         'ndcg10', 'hit10_twin', 'hit10_notwin', 'ndcg10_notwin']
 
 
 def main():
@@ -152,7 +155,15 @@ def main():
         return (0, v if args.sort == 'val_bpr' else -v)
 
     rows.sort(key=lambda r: (r['model'], key(r)))
-    print(f'{len(rows)} runs\n')
+    versions = {}
+    for r in rows:
+        versions[(r['split'], r['data'])] = versions.get((r['split'], r['data']), 0) + 1
+    print(f'{len(rows)} runs; data (split, training-edge fingerprint): '
+          + ', '.join(f'split {s} {d} x{n}' for (s, d), n in versions.items()))
+    if len(versions) > 1:
+        print(f'WARNING: these runs used {len(versions)} different data versions or splits '
+              f"('-' = saved before runs recorded their data); compare rows only within one")
+    print()
     print_markdown(rows, COLS)
     bad = [r for r in rows if r['warnings']]
     if bad:

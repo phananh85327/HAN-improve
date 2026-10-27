@@ -28,7 +28,7 @@ import numpy as np
 import torch
 
 from data_loader import data_loader
-from link_data import build_link_split
+from link_data import build_link_split, edges_fingerprint
 from han_utils import (NODE_TYPE_IDS, score_edges, evaluate_ranking,
                        evaluate_ranking_by_user, print_by_user,
                        evaluate_ranking_stratified, print_stratified,
@@ -65,7 +65,25 @@ def main(args):
             dl = data_loader(f'{args.root}/{dataset}')
             splits[key] = build_link_split(dl, tids[src_name], tids[dst_name],
                                            seed=seed, num_neg_eval=args.num_neg_eval)
+            splits[key]['train_edges_hash'] = edges_fingerprint(splits[key]['train_edges'])
         link_split = splits[key]
+
+        # the split is rebuilt from the data under --root: a blob trained on other data
+        # would be scored against the wrong edges, so it is skipped instead
+        trained_on = (blob.get('data') or {}).get('train_edges_hash')
+        if trained_on is not None and trained_on != link_split['train_edges_hash']:
+            print(f"SKIPPED: trained on other data or another split (training-edge fingerprint "
+                  f"{trained_on}; {args.root}/{dataset} split {seed} gives "
+                  f"{link_split['train_edges_hash']})")
+            continue
+        sizes = (blob['P_emb'].shape[0], blob['U_emb'].shape[0])
+        if sizes != (link_split['num_dst'], link_split['num_src']):
+            print(f"SKIPPED: the blob has {sizes[0]} products / {sizes[1]} users, the data "
+                  f"{link_split['num_dst']} / {link_split['num_src']}: trained on other data")
+            continue
+        if trained_on is None:
+            print('note: saved before runs recorded their data; the metrics below are valid only '
+                  'if the data has not changed since (the [matches stored] check below)')
 
         # .detach() for old blobs where U_emb was saved as a live Parameter
         P_emb = blob['P_emb'].detach().float().to(device)
