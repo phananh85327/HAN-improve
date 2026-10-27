@@ -34,7 +34,7 @@ for comparison. Each .npz gets a .meta.json sidecar recording the mode so
 train_han.py can warn when it loads a legacy graph.
 
 Usage (from han-recsys/):
-    python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_han \
+    python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_manual_5 \
         --topk 20 --split-seed 1 --target-relation "U,P"
 
 Output: data/<dataset>/metapath_graphs/<path>_top<k>_split<seed>.npz (scipy CSR,

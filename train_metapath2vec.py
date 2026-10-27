@@ -16,7 +16,8 @@ Negatives are drawn within the context node's type (each type occupies a
 contiguous global-id block), metapath2vec++-style, so the model cannot cheat by
 merely separating node types.
 
-    python train_metapath2vec.py --dataset AMAZON --arch amazon_lp_han --split-seed 0
+    python train_metapath2vec.py --arch amazon_lp_manual_5 --epochs 10 --evals-per-epoch 4 \
+        --patience 6 --seed 1 --save-emb output/AMAZON/v3/m2v_amazon_lp_manual_5_s1.pt
 """
 
 import argparse

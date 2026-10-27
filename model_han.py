@@ -33,7 +33,7 @@ CPU-only). Two memory traps this file deliberately avoids at ~3M edges/graph:
      (~7 GB per graph, retained for backward) -> aggregation runs as per-head
      sparse matmul instead;
   2. torch.sparse.mm's OWN backward for the sparse argument materializes the
-     values-gradient as a DENSE [N, N] matrix (grad_out @ h^T: 90,659^2 floats
+     values-gradient as a DENSE [N, N] matrix (grad_out @ h^T: 90,659^2 floats on the old data
      = 30.6 GiB, the exact OOM observed) -> SpmmEdgeValues below keeps the
      sparse.mm forward but hand-writes the backward: grad wrt each edge value
      is just <grad_out[dst], h[src]>, computed in edge chunks (SDDMM), and

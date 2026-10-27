@@ -3,21 +3,18 @@
 """
 Train/evaluate HAN on link prediction with LMSPS-discovered meta-paths.
 
-Mirrors main_path.py::main_link_prediction protocol exactly -- same edge split
-(build_link_split with --split-seed), same BPR loss and TrainEdgeSampler, same
-99-sampled-negative Precision/Recall/NDCG/Hit@K evaluation -- so the numbers are
-directly comparable with the LMSPS retrain.
+Same edge split as the LMSPS search (build_link_split with --split-seed), BPR loss with
+TrainEdgeSampler, and 99-sampled-negative Precision/Recall/NDCG/Hit@K evaluation, like every
+model in this repo.
 
 Prerequisites:
-  1. Search with HAN-compatible candidates:
-       python train_search.py --dataset AMAZON --task link_prediction \
-           --target-relation "U,P" --num-hops 3 --ns 5 --tgt-ended-paths ...
-  2. Materialize the discovered paths as graphs:
-       python build_metapath_graphs.py --dataset AMAZON --paths <paths> \
-           --topk 20 --split-seed 0
-  3. This script:
-       python train_han.py --dataset AMAZON --paths <paths> --split-seed 0
-     (or --arch amazon_lp_han to read the path list from arch.py)
+  1. The meta-path sets in arch.py (or --paths): the LMSPS Fleet v3 sets, searched with
+     --tgt-ended-paths so every path starts and ends at a product.
+  2. Materialize the paths as graphs:
+       python build_metapath_graphs.py --arch <key> --graph-dir <dir> --skip-existing
+  3. This script (run_all.bat runs every set; README "Run flow"):
+       python train_han.py --arch <key> --graph-dir <dir> --stage 150 --patience 10 \
+           --beta-warmup 15 --seed 1 --save-emb output/AMAZON/v3/han_<key>_s1.pt
 """
 
 import argparse

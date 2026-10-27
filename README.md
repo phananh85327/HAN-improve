@@ -7,155 +7,124 @@ list of path strings that start and end at the target type, e.g. "PUP,PPPP".
 The exact requirements a discovery repo must satisfy -- schema, target-type,
 leakage and fairness rules -- are in [METAPATH_CONTRACT.md](METAPATH_CONTRACT.md).
 
-Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse.
+Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse (dgl only for
+one optional test).
 
 ## Inputs
 
-- `data/AMAZON/` -- HGB-format node.dat / link.dat / label.dat[.test]
-  (built by `preprocessing/dat_generator.py` from the CSVs the C# pipeline in
-  `preprocessing/` writes; see `preprocessing/README.md` for the filter chain and
-  the known data issues). `data_leafcat/AMAZON/` is the same dataset with
-  products linked only to their leaf categories (`--category-link leaf`); run any
-  script against it with `--root data_leafcat`.
-- a comma-separated meta-path list (from your discovery method), or an
-  `arch.py` key via `--arch` (e.g. `amazon_lp_han` = the discovered set of
-  record, `amazon_lp_manual` = the hand-picked ablation set)
+- `data/AMAZON/`: the HGB-format data (`node.dat`, `link.dat`, `label.dat`, `label.dat.test`,
+  `meta.json`). Use the rebuilt data from the LMSPS repo (edition duplicates merged, placeholder
+  customers dropped; LMSPS review part 1): copy those five files into `data/AMAZON/` and delete
+  graph folders built from older data. Every script prints which data it uses and the
+  fingerprint of its training edges, and stops on data without `meta.json` (the data before the
+  rebuild; `--allow-legacy-data` to use it on purpose). `python check_handover.py <LMSPS search
+  record>` confirms that the data is the data the search ran on.
+- the meta-path sets, as `arch.py` keys (`--arch`) or a comma-separated list (`--paths`):
+  - the LMSPS Fleet v3 sets `amazon_lp_v3_f4_a<i>` / `amazon_lp_v3_f6_a<i>`, pasted from the LMSPS
+    repo's `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt`
+  - the manual sets `amazon_lp_manual_1..8` (M1-M8 of the LMSPS repo's
+    `review/manual_metapath_sets.md`)
+  - the random draws `amazon_lp_rand4_d1..5` / `amazon_lp_rand6_d1..5`
+  - older keys (`amazon_lp_f4_*`, `amazon_lp_f6_*`, `amazon_lp_han*`, `amazon_lp_manual`) were
+    searched on the data before the rebuild
 
-## Flow
+## Run flow (the rerun on the rebuilt data)
 
-    # 1. materialize each meta-path as a product-product graph (train-split-safe).
-    #    Output files are named per path, so builds for different arches coexist.
-    #    Top-k pruning breaks walk-count ties with a seeded RANDOM key by default
-    #    (--tie-break random, --tie-seed = split seed). Graphs built before this
-    #    option existed used the id tie-break (--tie-break id), which made low
-    #    product ids hubs -- rebuild them. Each .npz gets a .meta.json sidecar
-    #    recording the mode; train_han.py warns when the sidecar is missing.
-    python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_han --topk 20 --split-seed 0
-    python check_graph_bias.py data/AMAZON/metapath_graphs      # per-id-decile degree audit
+`run_all.bat <stage>` runs the whole HAN-side experiment. Every run is one model trained on one
+meta-path set with one seed. It writes `output/AMAZON/v3/<model>_<key>_s<seed>.pt` and the log
+`output/AMAZON/v3/logs/<same name>.txt`.
 
-    # 2. HAN -- config of record. --beta-warmup 15 is REQUIRED: it freezes the
-    #    semantic attention to uniform for the first 15 epochs so every per-path
-    #    GAT gets gradient signal; without it, attention collapses onto 1-2 paths
-    #    at initialization (rich-get-richer) and the other paths are never used.
-    python train_han.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
-        --stage 150 --patience 10 --beta-warmup 15 --seed 1 \
-        --save-emb output/AMAZON/han_emb_auto_s1.pt
+- A run whose result exists is skipped, so the script can be stopped and started again.
+- Any stage can be run alone.
+- `run_all.bat dry` prints every command, so single runs can also be started by hand.
 
-    # 2a. paper-faithful hyperparameters (Wang et al. 2019, Sec. 5.3): lr 0.005,
-    #     weight-decay 0.001, dropout 0.6, hidden 64 (8x8), patience 100, no
-    #     warmup / temperature. Explicit flags still override the preset.
-    python train_han.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
-        --paper-config --seed 1 --save-emb output/AMAZON/han_emb_auto_paper_s1.pt
+The design, the reasons and the cost are in `review/h6_run_protocol.md`.
 
-    # 2b. baselines on the same split (thesis comparison rows)
-    python train_metapath2vec.py --dataset AMAZON --arch amazon_lp_han --split-seed 0 \
-        --epochs 50 --evals-per-epoch 4 --patience 6 --seed 1 \
-        --save-emb output/AMAZON/m2v_emb_auto_s1.pt
-    python train_gat.py --dataset AMAZON --split-seed 0 --stage 50 --patience 4 --seed 1 \
-        --save-emb output/AMAZON/gat_emb_s1.pt
+| stage | what |
+|---|---|
+| `check` | `check_handover.py` against a Fleet v3 search record (`SEARCH_RECORD` at the top of the file) |
+| `build` | the graphs of every set into `data/AMAZON/metapath_graphs_v3` (graphs from other data are rebuilt) |
+| `audit` | `check_graph_bias.py`, `check_edition_twins.py` |
+| `smoke` | a few epochs of HAN on a 6-path set and of GAT: GPU memory check, nothing kept |
+| `popularity` | the popularity floor |
+| `han` | HAN, seed 1, on the Fleet v3, manual and random sets |
+| `gat` | GAT on the union graph, seed 1 |
+| `m2v` | metapath2vec, seed 1, on the same sets |
+| `seeds` | seeds 2 and 3 for the main comparison (HAN and metapath2vec on `amazon_lp_v3_f4_a1`, `amazon_lp_v3_f6_a1`, `amazon_lp_manual_5`, `amazon_lp_manual_6`) and for GAT |
+| `summarize` | `summarize_results.py --group --full-ranking`, also saved as `output/AMAZON/v3/results.csv` |
+| `push` | commit the logs and the table (results `.pt` files stay local) and push |
 
-    # 2c. ablations -- does AUTOMATIC discovery beat manual / random paths?
-    #     (same pipeline with --arch amazon_lp_manual; materialize in step 1 first)
-    python random_paths.py --seed 0     # prints a seeded random valid path list
+Before the Fleet v3 sets are in `arch.py`, `build`, `han` and `m2v` train the manual and random
+sets only, and `seeds` waits. In all, about 20-25 GPU hours on a 12 GB card.
 
-    # 3. recompute test metrics from ANY saved embeddings -- no retraining.
-    #    Rebuilds the deterministic split from the blob's own split_seed, prints
-    #    per-edge, per-user and degree-stratified metrics, and cross-checks each
-    #    per-edge number against the metrics stored at train time.
-    python eval_emb.py --emb output/AMAZON/*.pt "../LMSPS/hgb/output/AMAZON/lmsps_emb.pt"
+How to read the results table:
+- **Main comparison:** LMSPS against manual at the same number of paths, `amazon_lp_v3_f4_a1`
+  against M5 and `amazon_lp_v3_f6_a1` against M6, 3 seeds each.
+  - The random draws ask whether the search picks better than chance from its own 36
+    candidates. Report their spread, never a single draw.
+  - Popularity is the floor every model must clear.
+  - GAT is the type-blind GNN; metapath2vec the shallow meta-path baseline.
+- **Choose by validation BPR,** never by a test number, if you pick a "best" set among several.
+- **Read the `data` and `variant` columns:** the table keeps different data versions and different
+  settings apart, and warns when it mixes data versions.
+- **Full ranking:** the full-ranking columns rank against every product instead of 99 random ones.
+  Sampled numbers flatter popular items (popularity: 0.42 sampled, 0.009 full).
 
-    # 4. serve queries (works with any saved *_emb.pt, incl. lmsps_emb.pt)
-    python recommend.py --emb output/AMAZON/han_emb_auto_s1.pt --interactive \
+Earlier results (`logs/Final 1-5`, `output/AMAZON/Han_*`, `M2v_*`, `gat_s1.txt`) were trained on
+the data before the rebuild and with the old GAT and HAN initialisation. They are not comparable
+with the rerun.
+
+## Running one model by hand
+
+    python check_handover.py "../LMSPS/hgb/logs/Fleet v3/final_ns4/search_ns4_seed1.json"
+    python build_metapath_graphs.py --arch amazon_lp_manual_5 --graph-dir data/AMAZON/metapath_graphs_v3 --skip-existing
+    python train_han.py --arch amazon_lp_manual_5 --graph-dir data/AMAZON/metapath_graphs_v3 \
+        --stage 150 --patience 10 --beta-warmup 15 --seed 1 --save-emb output/AMAZON/v3/han_amazon_lp_manual_5_s1.pt
+    python train_metapath2vec.py --arch amazon_lp_manual_5 --epochs 10 --evals-per-epoch 4 --patience 6 \
+        --seed 1 --save-emb output/AMAZON/v3/m2v_amazon_lp_manual_5_s1.pt
+    python train_gat.py --stage 150 --patience 10 --seed 1 --save-emb output/AMAZON/v3/gat_union_s1.pt
+    python popularity_baseline.py --save-emb output/AMAZON/v3/popularity_s1.pt
+    python summarize_results.py "output/AMAZON/v3/*.pt" --group --full-ranking
+    python eval_emb.py --emb output/AMAZON/v3/han_amazon_lp_manual_5_s1.pt --full-ranking
+    python recommend.py --emb output/AMAZON/v3/han_amazon_lp_manual_5_s1.pt --interactive \
         --products-csv <...>/filtered_products.csv --users-csv <...>/filtered_users.csv --exclude-seen
 
-## Run flow (locked protocol, 2026-10-23)
+A result saved under the name `run_all.bat` would give it counts as done for the batch file.
 
-Everything below is driven by `run_all.bat <stage>` (`execute.bat` forwards to it; no
-argument = `summarize`). Split seed 1 everywhere (the LMSPS fleets selected their paths on
-split 1), graphs read from `data/AMAZON/metapath_graphs_all_unique` via `--graph-dir`, one
-blob per run at `output/AMAZON/<model>_<archkey>_s<seed>[_paper].pt`, one log per run under
-`logs/Final 5/`. A run whose blob exists is skipped, so the script can be relaunched.
-
-| stage | what | runs | GPU time (12 GB card) |
-|---|---|---|---|
-| `build` | manual + random ablation paths into the shared graph dir (`--skip-existing`) | 3 | ~1 h |
-| `audit` | `check_graph_bias.py`, `check_edition_twins.py` | 2 | 10 min |
-| `han` | HAN config of record (`--stage 150 --patience 10 --beta-warmup 15`), seed 1, 13 shortlist keys + `amazon_lp_manual` + `amazon_lp_random4_s0` + `amazon_lp_random6_s0` | 16 | ~16 h |
-| `m2v` | metapath2vec fast sweep (`--epochs 10 --evals-per-epoch 4 --patience 6`), same 16 keys | 16 | ~8 h |
-| `gat` | GAT on the union graph (arch-independent), seeds 1 2 3 | 3 | ~3 h |
-| `seeds` | HAN seeds 2 3 on the headline keys `amazon_lp_f4_c`, `amazon_lp_f6_s1`, `amazon_lp_manual` (+ extra keys passed as arguments) | 6+ | ~10 h |
-| `m2v_paper` | metapath2vec `--paper-walks` (walk length 100, 10 walks/node, window 5), seeds 1 2 3, headline keys | 9 | ~60 h |
-| `han_paper` | HAN `--paper-config` (Wang et al. Sec. 5.3 hyperparameters), seed 1, headline keys | 3 | ~8 h |
-| `summarize` | `summarize_results.py --group --csv "logs/Final 5/results.csv"` | 1 | minutes |
-
-`run_all.bat all` runs them in that order (the 60-hour `m2v_paper` stage is second to last, so
-every other table can be drafted after ~45 h); `run_all.bat dry` prints every command.
-
-How to read the result table (`summarize_results.py`):
-- **Choose the best arch by validation BPR**, never by a test metric. Then pass that key to
-  `run_all.bat seeds <key>` if it is not already a headline key.
-- Rows: *discovered* (13 shortlist sets from the LMSPS fleet, 4 or 6 paths), *manual* (5 hand-picked
-  paths), *random* (schema-valid random paths at the same budgets) -- the discovery question is
-  whether the discovered rows beat manual and random at equal path budget; GAT is the
-  heterogeneity-blind floor; metapath2vec the shallow meta-path baseline.
-- Report `hit10_notwin` next to `hit10`: the duplicate-edition shortcut (section "Metrics") lifts
-  every model by about 7-8 points and the non-twin column is the recommendation-quality number.
-- `han_paper` / `m2v_paper` rows are fidelity rows (paper hyperparameters / paper walk corpus), not
-  the config of record; keep them in a separate table.
-
-Legacy: `logs/Final 1-4` and the `han_emb_*`, `m2v_emb_*`, `Old 2/` blobs predate the tie-break fix
-and use retired arch keys; they are not comparable with this flow.
-
-
-
-- `--split-seed` pins WHICH edges are train/val/test and the fixed 99 eval
-  negatives per test edge -- identical across all models and both arches, so
-  every row takes the same exam.
-- `--seed` is the RUN seed (init, dropout, shuffling, BPR negatives, walks).
-  Final tables should be mean +/- std over 3 run seeds: repeat each trainer with
-  `--seed 1`, `--seed 2`, `--seed 3`. WARNING: the default `--save-emb auto`
-  writes the same file every run -- pass a per-seed filename (as above) or
-  `--save-emb ""` for the extra seeds, or the last seed silently overwrites.
-- Early stopping (all trainers): the best-val checkpoint is always kept; an
-  epoch only resets patience if it improves val bpr by more than `--min-delta`
-  (default 5e-4). `--min-delta 0` restores strict run-to-plateau behavior.
-  train_metapath2vec additionally takes `--evals-per-epoch` (validation checks
-  per corpus pass; its patience counts EVALUATIONS) because SGNS peaks against
-  the ranking objective inside the first epochs.
-- `--vram-fraction` (default 0.9) caps the CUDA allocator below total VRAM so
-  overshoot raises a clean OOM instead of Windows silently paging GPU memory to
-  system RAM (multi-x slowdowns) or bluescreening the driver.
+Settings worth knowing:
+- `--split-seed` (default 1, the split the LMSPS fleets used) fixes WHICH edges are train/val/test
+  and the 99 evaluation negatives per test edge -- identical for every model, so every row takes
+  the same exam. `--seed` is the RUN seed (initialisation, dropout, batches, BPR negatives, walks).
+- `--beta-warmup 15` is required for HAN: without it the semantic attention puts all its weight
+  on one path within the first epochs (`review/h3_han_model_and_training.md`).
+- Early stopping (all trainers): the best-validation checkpoint is always kept; an epoch only
+  resets patience if it improves validation BPR by more than `--min-delta` (default 5e-4).
+  train_metapath2vec also takes `--evals-per-epoch` (its patience counts evaluations), because
+  skip-gram peaks against the ranking objective inside the first epochs.
+- The default `--save-emb auto` writes the same file every run: always pass a per-run name.
+- `--vram-fraction` (default 0.9) caps the CUDA allocator below total VRAM so overshoot raises a
+  clean OOM instead of Windows paging GPU memory to system RAM or the driver crashing.
+- `python -m pytest tests` runs the repo's tests (about a minute on a CPU).
 
 ## Metrics
 
-Each trainer (and eval_emb.py) reports two tables:
-- **per-edge**: each test edge's positive ranked against its own 99 sampled
-  negatives. With one positive per ranking, Recall@k == Hit@k and
-  Precision@k = Hit@k / k by construction.
-- **per-user**: all of a user's test positives ranked together against the
-  deduplicated union of that user's negatives, macro-averaged over users --
-  the four metrics genuinely differ. Not comparable to per-edge numbers;
-  report separately.
-Plus a Hit/NDCG breakdown by user training degree (cold vs heavy users), and a
-breakdown by **duplicate-edition twin**: Amazon shares one review pool across the
-editions of a title and the SNAP dump copies it into every edition, so 46 % of
-products have a reviewer set identical to another product's and 55 % of U-P edges
-sit on such products. A test edge whose user already has a TRAIN edge to a twin of
-the test item is predictable from one P-U-P hop; 50 % of test edges are in that
-situation by exact identity (61 % at Jaccard >= 0.99, 73 % at >= 0.9; split 1).
-Every trainer and `eval_emb.py` therefore report Hit@10 / NDCG@10 separately for
-"twin in train" and "no twin in train" edges
-(`link_data.product_twin_groups`, `han_utils.report_twin_breakdown`;
-`check_edition_twins.py` prints the dataset-level numbers). Read the non-twin row
-as the number closest to recommendation quality rather than edition matching
-(saved HAN runs: ~0.95 Hit@10 on twin edges vs ~0.80 on the rest; metapath2vec
-~0.87 vs ~0.70).
+Each trainer (and eval_emb.py) reports:
+- **per-edge**: each test edge's positive ranked against its own 99 sampled negatives. With one
+  positive per ranking, Recall@k == Hit@k and Precision@k = Hit@k / k by construction.
+- **per-user**: all of a user's test positives ranked together against the deduplicated union of
+  that user's negatives, macro-averaged over users; the four metrics genuinely differ. Not
+  comparable to per-edge numbers; report separately.
+- a Hit/NDCG breakdown by user training degree (cold vs heavy users)
+- a breakdown by **duplicate-edition twin**: test edges whose user has a training edge to another
+  edition of the test item. On the data before the rebuild that was half of all test edges; the
+  rebuilt data merges editions, which leaves 40 of 81,984 test edges, so the column is nearly
+  empty now (`link_data.product_twin_groups`, `check_edition_twins.py`)
+- with `--full-ranking` (`eval_emb.py`, `summarize_results.py`): the same test edges ranked
+  against every product the user has no observed edge to (`han_utils.evaluate_full_ranking`)
 
-All trainers default to `--user-tower embedding`: the user side is a free
-per-user trained vector, matching the per-user capacity metapath2vec/GAT get
-implicitly, so the ranking numbers compare ITEM encoders (the meta-path
-question) instead of user-representation capacity. Pass `--user-tower feats`
-for the original inductive hash-feature tower.
+All trainers default to `--user-tower embedding`: the user side is a free per-user trained
+vector. GAT builds its users from their items instead, which is part of any difference between
+GAT and HAN. Pass `--user-tower feats` for the inductive hash-feature tower.
 
 ## Deviations from the paper (Wang et al., WWW-2019)
 
@@ -214,8 +183,8 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
 | eval_emb.py | recompute all test metrics from saved embeddings, no retraining; skips results from other data; `--full-ranking` |
 | summarize_results.py | one table over all saved blobs (data version, settings variant, val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds; `--full-ranking` |
 | tests/ | `python -m pytest tests` (about a minute on a CPU) |
-| review/ | the HAN repo review (parts H1-H5 so far) |
-| run_all.bat / execute.bat | the complete experiment flow by stage (see "Run flow") |
+| review/ | the HAN repo review (parts H1-H7; H8, the results, follows the rerun) |
+| run_all.bat | the complete experiment flow by stage (see "Run flow"); `arch_keys.py` lists the Fleet v3 keys for it |
 | recommend.py | ASIN -> similar products; user -> top-k products |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
 

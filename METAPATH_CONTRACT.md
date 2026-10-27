@@ -44,9 +44,12 @@ For AMAZON the alphabet is fixed in `han_utils.py::NODE_TYPE_IDS`:
 
 | letter | node type | HGB type id | count | feature dim |
 |---|---|---|---|---|
-| `P` | Product | 0 | 90,659 | 504 |
-| `C` | Category | 1 | 39,754 | 128 |
-| `U` | User | 2 | 171,285 | 64 |
+| `P` | Product | 0 | 48,883 | 260 |
+| `C` | Category | 1 | 37,411 | 128 |
+| `U` | User | 2 | 53,569 | 64 |
+
+(Counts of the rebuilt data, LMSPS review part 1. The data before the rebuild had 90,659 /
+39,754 / 171,285 nodes and 504-d product features.)
 
 Any other character is an error. Lowercase is *not* normalized -- emit uppercase.
 
@@ -128,13 +131,16 @@ If your method wants to output more, rank them and truncate.
 
 ### S3. Do not emit dead paths
 
-After materialization each path reports its isolated-node count:
+After materialization each path reports its mean degree and isolated-node count. On the
+rebuilt data (split 1, top-20), for example:
 
-```
-PPPP:   90659 nodes, 1698430 edges, mean degree 18.7, 10720 isolated nodes
-PCPCCP: 90659 nodes, 3383822 edges, mean degree 37.3, 0 isolated nodes
-PUPPUP: 90659 nodes, 3426918 edges, mean degree 37.8, 49 isolated nodes
-```
+| path | mean degree | isolated products |
+|---|---|---|
+| `PUP` | 34.6 | 0.0% |
+| `PPP` | 10.3 | 16.2% |
+| `PCCPUP` | 7.5 | 76.2% |
+
+(`review/h2_graph_construction.md` has the full table.)
 
 A path where most products are isolated contributes almost nothing but still
 costs a full GAT. Roughly: under ~15% isolated is healthy, over ~50% means the
@@ -155,11 +161,13 @@ things must match, or the numbers mean nothing:
 
 ### F1. Same data
 
-Read the same `data/AMAZON/` HGB `.dat` files. Do not regenerate or re-filter them.
+Read the same `data/AMAZON/` HGB `.dat` files. Do not regenerate or re-filter them. Every run
+here prints a fingerprint of its training edges, the same one an LMSPS search record stores;
+`check_handover.py <search record>` compares the two.
 
 ### F2. Same split seed
 
-Everything downstream is pinned by `--split-seed 0`. If your discovery method
+Everything downstream is pinned by `--split-seed 1` (the split the LMSPS fleets used). If your discovery method
 looks at edges at all (LMSPS does -- it trains on them), it must build its split
 with the same `build_link_split(dl, src_type, dst_type, seed=<same seed>)`.
 
@@ -222,8 +230,9 @@ Once the list is accepted, this is what happens to it -- a new discovery repo do
    prunes to `--topk 20` neighbors per row after each step (walk-count ties are
    broken by a seeded random key, `--tie-break random`; the legacy `id` mode
    favored low product ids), binarizes, strips self-loops, symmetrizes, and writes
-   `data/AMAZON/metapath_graphs/<path>_top20_split0.npz` plus a
-   `<path>_top20_split0.meta.json` sidecar recording the tie-break mode.
+   `data/AMAZON/metapath_graphs/<path>_top20_split1.npz` plus a
+   `<path>_top20_split1.meta.json` sidecar recording the tie-break mode and the training-edge
+   fingerprint (`train_han.py` refuses a graph built from other data).
 2. `train_han.py` loads one graph per path, appends self-loops, runs one GAT per
    path and fuses them with semantic attention, trains with BPR, and evaluates
    with 99 sampled negatives -> Precision/Recall/NDCG/Hit@K.
@@ -244,21 +253,22 @@ Run these before trusting a comparison:
 1. **Schema check** -- every path matches `^P[PCU]*P$`, has no `UU`/`UC`/`CU`
    substring, and no duplicate under `min(p, p[::-1])`.
 2. **Materialize** -- `build_metapath_graphs.py --paths "<yours>" --topk 20
-   --split-seed 0` completes and reports a plausible mean degree (roughly 10-40)
+   --split-seed 1` completes and reports a plausible mean degree (roughly 10-40)
    and a low isolated-node count for most paths.
 3. **Leakage** -- rebuild your discovery input with the *full* U-P adjacency in a
    throwaway run and confirm the edge count differs from the train-only one. If
    it does not, your method was reading the full matrix.
-4. **Train** -- `train_han.py --paths "<yours>" --split-seed 0 --stage 2` runs end
+4. **Train** -- `train_han.py --paths "<yours>" --split-seed 1 --stage 3 --beta-warmup 1` runs end
    to end and prints metrics.
 5. **Sanity** -- Hit@10 must land well above the 0.10 random-guess floor (1 positive
    among 100 candidates). A value near 0.10 is a bug, not a weak method -- almost
    always a global-vs-local node-id mismatch, since eval edges are local per type.
+   It must also clear the popularity floor, `popularity_baseline.py`: Hit@10 0.42 on the
+   rebuilt data, split 1.
 
-Reference numbers on AMAZON (per-edge Hit@10 / NDCG@10, 99 sampled negatives,
-`--user-tower embedding`, split-seed 1, run-seed 1; logs in `logs/Final 1..4`).
-These graphs were built with the legacy `--tie-break id`; numbers with the
-random tie-break are not yet available.
+Reference numbers below are from the data BEFORE the rebuild (edition duplicates inflated every
+number by several points) and the legacy `--tie-break id` graphs; they are kept for the record
+only. The rerun's numbers come from `run_all.bat` (README "Run flow").
 
 | model | paths | Hit@10 | NDCG@10 |
 |---|---|---|---|
@@ -273,9 +283,10 @@ random tie-break are not yet available.
 0.3472 and the LMSPS retrain 0.5756 / 0.3591; those are not comparable to the
 rows above.)
 
-A new discovery method is doing its job if HAN trained on *its* paths lands in
-the same neighborhood; the interesting result is which paths it finds and how
-the semantic-attention weights redistribute.
+A new discovery method is doing its job if HAN trained on *its* paths beats the manual and
+random sets of the same size; the interesting result is which paths it finds and how the
+semantic-attention weights redistribute (with every path's GAT starting from the same weights,
+so the weights belong to the paths, not to their order in the list).
 
 ---
 

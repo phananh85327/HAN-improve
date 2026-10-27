@@ -1,11 +1,9 @@
 """
-Link-prediction data preparation for LMSPS.
-
-Builds a train/val/test split of a single target relation (e.g. Author-Paper for
-ACM, eventually User-Product for AMAZON) for BPR-style link prediction, plus fixed
-negative candidates for val/test ranking evaluation. Kept dataset-agnostic: callers
-pass the two node-type ids to relate; the dataset-specific wiring (which adjacency
-dict keys to patch before meta-path propagation) lives in train_search.py/main_path.py.
+Link-prediction data preparation: the train/val/test split of the target relation
+(User-Product for AMAZON) for BPR-style link prediction, plus fixed negative candidates for
+val/test ranking evaluation. build_link_split is the same code as in the LMSPS repo, so the
+same split seed gives the same edges and negatives on both sides (HAN review H1); the
+training-edge fingerprint (edges_fingerprint) is the one LMSPS search records store.
 """
 
 import hashlib
@@ -23,7 +21,8 @@ def product_twin_groups(full_adj_src2dst):
     Amazon shows one review pool across the editions/formats of a title and the
     SNAP amazon-meta crawl copies that pool into every edition's record, so the
     HGB export contains thousands of product pairs with byte-identical user
-    sets (46 % of AMAZON products, 55 % of U-P edges; measured 2026-10-23). For
+    sets (46 % of AMAZON products, 55 % of U-P edges on the data before the rebuild,
+    measured 2026-10-23; the rebuilt data merges editions, leaving almost none). For
     a test edge (u, p) whose user already has a TRAIN edge to such a twin, the
     held-out item is predictable from a single P-U-P hop. The groups returned
     here let the evaluation report that case separately.

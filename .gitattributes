@@ -1,0 +1,4 @@
+# Windows batch files keep CRLF line endings on checkout, whatever core.autocrlf says:
+# with LF-only endings cmd can fail to find a label (goto / call :label), and run_all.bat
+# calls its helper labels for every run.
+*.bat text eol=crlf

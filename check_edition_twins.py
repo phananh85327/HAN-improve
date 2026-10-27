@@ -6,9 +6,10 @@ evaluation shortcut they create.
 
 Amazon shows one review pool across the editions/formats of a title (hardcover,
 paperback, audio; full-screen / widescreen / platinum DVD ...). The SNAP
-amazon-meta crawl copies that pool into every edition's record, and the
-preprocessing (preprocessing/AmazonGraphFilter.cs) never merges editions. The
-result: thousands of product pairs with byte-identical reviewer sets. For a
+amazon-meta crawl copies that pool into every edition's record, and the old
+preprocessing (preprocessing/AmazonGraphFilter.cs) never merged editions. The
+result: thousands of product pairs with byte-identical reviewer sets. The rebuilt data
+(LMSPS repo, amazon_extract.py) merges editions, so on it this audit finds almost none. For a
 held-out edge (u, p) whose user already has a TRAIN edge to a twin of p, the
 positive is predictable from a single P-U-P hop, so any co-reviewed meta-path
 scores it trivially.

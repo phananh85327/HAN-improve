@@ -37,40 +37,53 @@
 - Windows PowerShell 5.1 only: no bash, no jq, no pwsh. Hooks and scripts must be
   5.1-compatible.
 
-## Locked protocol (2026-10-23) and run flow
+## Protocol for the rerun on the rebuilt data (2026-10-27) and run flow
 
-- **Locked, do not change without the user:** `preprocessing/` chain and `data/AMAZON/*.dat`;
-  the 13 fleet-v2 shortlist keys in `arch.py` (+ `_c` aliases) and the ablation keys
-  `amazon_lp_manual`, `amazon_lp_random4_s0`, `amazon_lp_random6_s0`; split seed 1; graphs in
-  `data/AMAZON/metapath_graphs_all_unique` (random tie-break, sidecars). The duplicate-edition
-  issue is reported (twin / non-twin breakdown), not fixed in the data.
-- The whole experiment is `run_all.bat <stage>` (`execute.bat` forwards): build, audit, han,
-  m2v, gat, seeds, m2v_paper, han_paper, summarize; `dry` prints every command. Details and
-  the result-reading rules are in README "Run flow". Winner selection is by **validation BPR**.
-- Naming: blobs `output/AMAZON/<model>_<archkey>_s<seed>[_paper].pt`, logs `logs/Final 5/<same>.txt`.
-  Never use `--save-emb auto` in batch runs. `logs/Final 1-4` and `*_emb_*.pt` blobs are legacy.
-- Baselines stay close to their original code on purpose: GAT = 2-layer union-graph GAT without
-  output ELU, hyperparameters matched to the HAN config of record; metapath2vec default = fast
-  walk corpus, `--paper-walks` = HAN-paper walk settings used only on the headline keys.
+- **Do not change without the user:** the data in `data/AMAZON/` is the rebuilt data copied from
+  the LMSPS repo (has `meta.json`; split 1 gives training-edge fingerprint `c5f7bccbf61c1b0f`,
+  checked by `check_handover.py`); split seed 1; the manual sets `amazon_lp_manual_1..8` and
+  the random draws `amazon_lp_rand4_d1..5` / `amazon_lp_rand6_d1..5` in `arch.py` (frozen
+  before any Fleet v3 result); the main comparison `amazon_lp_v3_f4_a1` vs `amazon_lp_manual_5`
+  and `amazon_lp_v3_f6_a1` vs `amazon_lp_manual_6`, 3 seeds.
+- The Fleet v3 sets are pasted into `arch.py` from the LMSPS repo's
+  `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt` (`amazon_lp_v3_f4_a<i>`, `_f6_a<i>`).
+- The whole experiment is `run_all.bat <stage>`: check, build, audit, smoke, popularity, han,
+  gat, m2v, seeds, summarize, push; `dry` prints every command. A run whose result exists is
+  skipped; the user also starts single runs by hand. Details and the reading rules are in README
+  "Run flow" and `review/h6_run_protocol.md`. Winner selection is by **validation BPR**.
+- Naming: results `output/AMAZON/v3/<model>_<archkey>_s<seed>.pt`, logs
+  `output/AMAZON/v3/logs/<same>.txt` (`logs/` is git-ignored). Never use `--save-emb auto` in
+  batch runs. Everything trained before the rebuild (`logs/Final 1-5`, `output/AMAZON/Han_*`,
+  `M2v_*`, old `.pt` files) is legacy.
+- Baselines: GAT = 2-layer union-graph GAT without output ELU, hyperparameters matched to the
+  HAN config of record, and each training step removes its own positive edges from the graph
+  (review H4); metapath2vec = fast walk corpus; popularity (`popularity_baseline.py`) is the
+  floor. The `--paper-config` and `--paper-walks` rows are no longer run (review H3, H6).
 
 ## Repo conventions worth knowing
 
 - Meta-path graphs: `build_metapath_graphs.py` writes `<path>_top<k>_split<s>.npz`
-  plus a `.meta.json` sidecar (tie-break mode). Graphs without the sidecar were
-  built with the biased id tie-break and should be rebuilt. `check_graph_bias.py`
-  audits a graph directory. As of 2026-10-23 `data/AMAZON/metapath_graphs_*`
-  hold only sidecar-bearing split-1 graphs for the 13 fleet-v2 shortlist paths
-  (`metapath_graphs_all_unique` = the union; the per-arch dirs are byte-identical
-  copies of those files).
+  plus a `.meta.json` sidecar (tie-break mode, training-edge fingerprint). `train_han.py`
+  refuses a graph built from other data; `--skip-existing` rebuilds such a graph.
+  `check_graph_bias.py` audits a graph directory. The rerun's graphs live in
+  `data/AMAZON/metapath_graphs_v3`; older `metapath_graphs_*` folders are from the data
+  before the rebuild.
+- Every run records its data (`data` in the result: meta.json, node counts, fingerprint);
+  `summarize_results.py` keeps data versions and settings (`variant`) apart.
+- HAN starts every path's GAT from the same weights (`--independent-init` = old behaviour), so
+  results and path weights do not depend on the order of the paths (review H3).
+- Review notes are in `review/h1..h7_*.md`; `python -m pytest tests` runs the tests.
 - Duplicate editions: `link_data.product_twin_groups` / `twin_in_train`,
-  `han_utils.report_twin_breakdown`, `check_edition_twins.py`. Read the "no twin
-  in train" row of any result as the recommendation-quality number.
-- `preprocessing/` holds the C# parser/filter (reference copies) and
-  `dat_generator.py`; its README lists the filter chain and known data issues.
+  `han_utils.report_twin_breakdown`, `check_edition_twins.py`. On the data before the
+  rebuild the "no twin in train" row was the recommendation-quality number; the rebuilt
+  data merges editions (40 of 81,984 test edges left with a twin).
+- `preprocessing/` holds the old C# parser/filter (reference copies) and
+  `dat_generator.py`; its README lists the filter chain and known data issues. The rebuilt
+  data comes from the LMSPS repo instead (`hgb/amazon_extract.py` + `hgb/dat_generator.py`).
   `--category-link leaf` writes a leaf-only P-C variant; keep it in
   `data_leafcat/AMAZON` and run scripts with `--root data_leafcat`.
-- `arch.py`: `amazon_lp_f4_c` / `amazon_lp_f6_c` are aliases of `_f4_s1` / `_f6_s4`
-  matching the LMSPS repo's consensus keys.
+- `arch.py`: the Fleet v2 keys (`amazon_lp_f4_*`, `_f6_*`, aliases `_f4_c` / `_f6_c`) were
+  searched on the data before the rebuild and are kept for the record only.
 - `train_han.py --paper-config` applies the paper's Sec. 5.3 hyperparameters;
   explicit flags override it.
 - `README.md` has a "Deviations from the paper" section; keep it current when the

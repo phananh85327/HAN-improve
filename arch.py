@@ -94,6 +94,38 @@ archs = {
         ['PP', 'PPP', 'PUP', 'PCP'], []],
     "amazon_lp_manual_8": [
         ['PUP', 'PCP', 'PUPUP', 'PCPUP'], []],
+    # Random draws (HAN review H4/H6): sets of 4 and of 6 paths drawn uniformly from the 36
+    # candidates the LMSPS fleets choose from (the same 36 in Fleet v2 and Fleet v3:
+    # target-ended, reverse-deduplicated, up to 5 hops). Frozen on 2026-10-27, before any
+    # Fleet v3 result:
+    #   python random_paths.py --from-record <search record> --size 4 --draws 5 --seed 4 --prefix amazon_lp_rand4
+    #   python random_paths.py --from-record <search record> --size 6 --draws 5 --seed 6 --prefix amazon_lp_rand6
+    # Report the spread over the five draws of each size, never a single draw.
+    "amazon_lp_rand4_d1": [
+        ['PCCPPP', 'PCPPUP', 'PPCCPP', 'PPPPP'], []],
+    "amazon_lp_rand4_d2": [
+        ['PCCPCP', 'PCCPP', 'PCPCP', 'PPUP'], []],
+    "amazon_lp_rand4_d3": [
+        ['PCCCP', 'PP', 'PPPPP', 'PUPUP'], []],
+    "amazon_lp_rand4_d4": [
+        ['PCCP', 'PCPPPP', 'PUP', 'PUPPUP'], []],
+    "amazon_lp_rand4_d5": [
+        ['PCCPPP', 'PCPP', 'PCPUPP', 'PPP'], []],
+    "amazon_lp_rand6_d1": [
+        ['PCCCCP', 'PCCCPP', 'PCCPCP', 'PCCPP', 'PCPUP', 'PPUPP'], []],
+    "amazon_lp_rand6_d2": [
+        ['PCCCP', 'PCPPUP', 'PCPUPP', 'PPCPP', 'PPP', 'PPUP'], []],
+    "amazon_lp_rand6_d3": [
+        ['PCCPPP', 'PCPPCP', 'PCPUP', 'PPCPPP', 'PPPPPP', 'PUPUP'], []],
+    "amazon_lp_rand6_d4": [
+        ['PCCPP', 'PPCPPP', 'PPP', 'PPPPP', 'PPPPUP', 'PUPUP'], []],
+    "amazon_lp_rand6_d5": [
+        ['PCCPPP', 'PCPPCP', 'PCPUP', 'PPCPUP', 'PPPPPP', 'PPPUP'], []],
+    # ---- Fleet v3 (the search rerun on the rebuilt data): paste the amazon_lp_v3_f4_a<i> and
+    # amazon_lp_v3_f6_a<i> entries printed in the LMSPS repo's
+    # hgb\logs\Fleet v3\final_ns4|final_ns6\reselect_d010.txt here (with their "# ----" line);
+    # run_all.bat trains every one of them, and amazon_lp_v3_f4_a1 / _f6_a1 are the headline
+    # sets of the main comparison.
 }
 
 # reselect_fleet.py names the vote's consensus <prefix>_c, and the README and the HAN repo
