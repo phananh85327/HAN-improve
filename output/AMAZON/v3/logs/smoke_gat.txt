@@ -1,0 +1,71 @@
+Command: python train_gat.py --dataset AMAZON --split-seed 1 --in-dim 256 --hidden 512 --num-heads 8 --layers 2 --feat-drop 0.2 --attn-drop 0.2 --lr 0.001 --weight-decay 0 --batch-size 100000 --vram-fraction 0.9 --stage 150 --patience 10 --min-delta 0.0005 --seed 1 --stage 2 --save-emb output\AMAZON\v3/smoke_gat.pt
+Start Time: 2026-10-29_12:00:47
+------------------------------------------------------------
+Namespace(root='data', dataset='AMAZON', target_relation='U,P', split_seed=1, allow_legacy_data=False, num_neg_eval=99, in_dim=256, hidden=512, num_heads=8, layers=2, feat_drop=0.2, attn_drop=0.2, no_grad_ckpt=False, vram_fraction=0.9, lr=0.001, weight_decay=0.0, stage=2, patience=10, min_delta=0.0005, batch_size=100000, save_emb='output\\AMAZON\\v3/smoke_gat.pt', keep_target_edges=False, eval_only='', gpu=0, cpu=False, seed=1)
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+Union graph: 139863 nodes, 2557353 edges (deduped from 2623701, incl. self-loops)
+HomoGAT(
+  (projs): ModuleList(
+    (0): Linear(in_features=260, out_features=256, bias=True)
+    (1): Linear(in_features=128, out_features=256, bias=True)
+    (2): Linear(in_features=64, out_features=256, bias=True)
+  )
+  (gats): ModuleList(
+    (0): GATLayer(
+      (fc): Linear(in_features=256, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (1): GATLayer(
+      (fc): Linear(in_features=512, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+  )
+)
+# Params: 512768
+Checkpoint: ./output/AMAZON/gat_7b90c447edbe4a95987f9ec509e0d7bf.pkl (a crashed run can be salvaged with --eval-only)
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|#####     | 1/2 [00:05<00:05,  5.58s/it]100%|##########| 2/2 [00:10<00:00,  5.25s/it]100%|##########| 2/2 [00:10<00:00,  5.30s/it]
+Epoch 0, train bpr 0.5506, val bpr 0.4806
+Epoch 1, train bpr 0.4580, val bpr 0.4158
+average train times 4.863935232162476
+Best epoch 1, val bpr 0.4158
+Test ranking metrics:
+  Precision@5: 0.0563
+  Recall@5: 0.2814
+  NDCG@5: 0.1814
+  Hit@5: 0.2814
+  Precision@10: 0.0434
+  Recall@10: 0.4339
+  NDCG@10: 0.2305
+  Hit@10: 0.4339
+  Precision@20: 0.0319
+  Recall@20: 0.6389
+  NDCG@20: 0.2822
+  Hit@20: 0.6389
+By user training degree:
+  deg=0     (      8 edges)  NDCG@10 0.0484  Hit@10 0.1250
+  deg 1-5   (  15831 edges)  NDCG@10 0.2348  Hit@10 0.4309
+  deg 6-20  (  27948 edges)  NDCG@10 0.2420  Hit@10 0.4448
+  deg>=21   (  38197 edges)  NDCG@10 0.2202  Hit@10 0.4273
+By duplicate-edition twin in train (identical reviewer sets; 0.0% of eval edges have one):
+  no twin in train (  81944 edges)  NDCG@10 0.2305  Hit@10 0.4340
+  twin in train    (     40 edges)  NDCG@10 0.1220  Hit@10 0.3250
+Per-user ranking metrics (33222 users, positives pooled per user):
+  Precision@5: 0.0669
+  Recall@5: 0.2185
+  NDCG@5: 0.1557
+  Hit@5: 0.3012
+  Precision@10: 0.0536
+  Recall@10: 0.3362
+  NDCG@10: 0.1975
+  Hit@10: 0.4508
+  Precision@20: 0.0411
+  Recall@20: 0.4982
+  NDCG@20: 0.2437
+  Hit@20: 0.6375
+Embeddings saved to output\AMAZON\v3/smoke_gat.pt (serve with recommend.py)
+------------------------------------------------------------
+End Time: 2026-10-29_12:01:19  exit code 0

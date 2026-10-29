@@ -1,0 +1,24 @@
+Command: python check_edition_twins.py --split-seed 1
+Start Time: 2026-10-29_11:56:32
+------------------------------------------------------------
+loaded data/AMAZON, split seed 1 (12s): train 655879 val 81984 test 81984
+
+products: 48883; with an identical reviewer set elsewhere: 51 (0.1%) in 23 groups
+group size histogram: 2:20 3:2 5:1
+U-P edges on such products: 497 of 819847 (0.1%)
+
+largest 8 groups (reviews per member, members):
+  38 reviews x 2 products: 4111; 18773
+  26 reviews x 2 products: 29041; 39804
+  19 reviews x 2 products: 18857; 31030
+  16 reviews x 2 products: 28425; 44701
+  15 reviews x 2 products: 18291; 32261
+  14 reviews x 2 products: 9480; 48345
+  12 reviews x 2 products: 10350; 48574
+  10 reviews x 2 products: 2146; 26649
+
+val edges whose user has a TRAIN edge to an identical-reviewer-set twin: 47 of 81984 (0.1%)
+
+test edges whose user has a TRAIN edge to an identical-reviewer-set twin: 40 of 81984 (0.0%)
+------------------------------------------------------------
+End Time: 2026-10-29_11:56:48  exit code 0

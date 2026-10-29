@@ -1,0 +1,136 @@
+Command: python train_han.py --dataset AMAZON --split-seed 1 --graph-dir data\AMAZON\metapath_graphs_v3 --topk 20 --hidden 512 --num-heads 8 --feat-drop 0.2 --attn-drop 0.2 --lr 0.001 --weight-decay 0 --user-tower embedding --batch-size 100000 --vram-fraction 0.9 --stage 150 --patience 10 --min-delta 0.0005 --beta-warmup 5 --arch amazon_lp_rand4_d2 --seed 1 --save-emb output\AMAZON\v3/han_amazon_lp_rand4_d2_s1.pt
+Start Time: 2026-10-29_22:29:24
+------------------------------------------------------------
+Namespace(root='data', dataset='AMAZON', target_relation='U,P', paths='', arch='amazon_lp_rand4_d2', topk=20, graph_dir='data\\AMAZON\\metapath_graphs_v3', split_seed=1, allow_legacy_data=False, num_neg_eval=99, hidden=512, num_heads=8, feat_drop=0.2, attn_drop=0.2, semantic_tau=1.0, beta_warmup=5, independent_init=False, no_grad_ckpt=False, vram_fraction=0.9, lr=0.001, weight_decay=0.0, stage=150, save_emb='output\\AMAZON\\v3/han_amazon_lp_rand4_d2_s1.pt', user_tower='embedding', patience=10, min_delta=0.0005, batch_size=100000, paper_config=False, gpu=0, cpu=False, seed=1)
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+Loading meta-path graphs from data\AMAZON\metapath_graphs_v3:
+  PCCPCP: 414389 edges (incl. self-loops); tie-break random (seed 1)
+  PCCPP: 401629 edges (incl. self-loops); tie-break random (seed 1)
+  PCPCP: 1805715 edges (incl. self-loops); tie-break random (seed 1)
+  PPUP: 1608767 edges (incl. self-loops); tie-break random (seed 1)
+HAN_LP(
+  (gats): ModuleList(
+    (0-3): 4 x GATLayer(
+      (fc): Linear(in_features=260, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+  )
+  (semantic): SemanticAttention(
+    (project): Sequential(
+      (0): Linear(in_features=512, out_features=128, bias=True)
+      (1): Tanh()
+      (2): Linear(in_features=128, out_features=1, bias=False)
+    )
+  )
+)
+# Params: 28031744
+  0%|          | 0/150 [00:00<?, ?it/s]  1%|          | 1/150 [00:04<11:41,  4.71s/it]  1%|1         | 2/150 [00:08<10:53,  4.41s/it]  2%|2         | 3/150 [00:13<10:34,  4.31s/it]  3%|2         | 4/150 [00:17<10:24,  4.28s/it]  3%|3         | 5/150 [00:21<10:16,  4.25s/it]  4%|4         | 6/150 [00:26<10:24,  4.34s/it]  5%|4         | 7/150 [00:30<10:28,  4.40s/it]  5%|5         | 8/150 [00:35<10:28,  4.43s/it]  6%|6         | 9/150 [00:39<10:26,  4.44s/it]  7%|6         | 10/150 [00:44<10:24,  4.46s/it]  7%|7         | 11/150 [00:48<10:22,  4.48s/it]  8%|8         | 12/150 [00:53<10:18,  4.48s/it]  9%|8         | 13/150 [00:57<10:15,  4.49s/it]  9%|9         | 14/150 [01:02<10:12,  4.50s/it] 10%|#         | 15/150 [01:06<10:07,  4.50s/it] 11%|#         | 16/150 [01:11<10:02,  4.50s/it] 11%|#1        | 17/150 [01:15<09:58,  4.50s/it] 12%|#2        | 18/150 [01:20<09:54,  4.50s/it] 13%|#2        | 19/150 [01:24<09:49,  4.50s/it] 13%|#3        | 20/150 [01:29<09:45,  4.51s/it] 14%|#4        | 21/150 [01:33<09:41,  4.51s/it] 15%|#4        | 22/150 [01:38<09:37,  4.51s/it] 15%|#5        | 23/150 [01:42<09:32,  4.51s/it] 16%|#6        | 24/150 [01:47<09:36,  4.58s/it] 17%|#6        | 25/150 [01:52<09:57,  4.78s/it] 17%|#7        | 26/150 [01:57<09:49,  4.75s/it] 18%|#8        | 27/150 [02:02<10:01,  4.89s/it] 19%|#8        | 28/150 [02:07<10:08,  4.99s/it] 19%|#9        | 29/150 [02:12<10:12,  5.06s/it] 20%|##        | 30/150 [02:18<10:12,  5.10s/it] 21%|##        | 31/150 [02:23<10:13,  5.16s/it] 21%|##1       | 32/150 [02:28<10:13,  5.20s/it] 22%|##2       | 33/150 [02:33<10:09,  5.21s/it] 23%|##2       | 34/150 [02:39<10:03,  5.20s/it] 23%|##3       | 35/150 [02:44<09:57,  5.20s/it] 24%|##4       | 36/150 [02:49<09:53,  5.21s/it] 25%|##4       | 37/150 [02:54<09:46,  5.19s/it] 25%|##5       | 38/150 [02:59<09:38,  5.17s/it] 26%|##6       | 39/150 [03:05<09:37,  5.21s/it] 27%|##6       | 40/150 [03:09<09:18,  5.08s/it] 27%|##7       | 41/150 [03:14<09:04,  4.99s/it] 28%|##8       | 42/150 [03:19<08:49,  4.90s/it] 29%|##8       | 43/150 [03:23<08:31,  4.78s/it] 29%|##9       | 44/150 [03:28<08:18,  4.70s/it] 30%|###       | 45/150 [03:32<08:07,  4.64s/it] 31%|###       | 46/150 [03:37<07:57,  4.59s/it] 31%|###1      | 47/150 [03:41<07:49,  4.56s/it] 32%|###2      | 48/150 [03:46<07:43,  4.54s/it] 33%|###2      | 49/150 [03:50<07:37,  4.53s/it] 33%|###3      | 50/150 [03:55<07:31,  4.51s/it] 34%|###4      | 51/150 [03:59<07:25,  4.50s/it] 35%|###4      | 52/150 [04:04<07:21,  4.50s/it] 35%|###5      | 53/150 [04:08<07:16,  4.50s/it] 36%|###6      | 54/150 [04:13<07:11,  4.50s/it] 37%|###6      | 55/150 [04:18<07:15,  4.58s/it] 37%|###7      | 56/150 [04:22<07:11,  4.59s/it] 38%|###8      | 57/150 [04:27<07:10,  4.63s/it] 39%|###8      | 58/150 [04:31<07:04,  4.61s/it] 39%|###9      | 59/150 [04:36<06:56,  4.58s/it] 40%|####      | 60/150 [04:40<06:49,  4.55s/it] 41%|####      | 61/150 [04:45<06:43,  4.54s/it] 41%|####      | 61/150 [04:49<07:03,  4.75s/it]
+Epoch 0, train bpr 0.6834, val bpr 0.6673 | beta PCCPCP:0.250 PCCPP:0.250 PCPCP:0.250 PPUP:0.250 (beta warmup)
+Epoch 1, train bpr 0.6491, val bpr 0.6353 | beta PCCPCP:0.250 PCCPP:0.250 PCPCP:0.250 PPUP:0.250 (beta warmup)
+Epoch 2, train bpr 0.6120, val bpr 0.6003 | beta PCCPCP:0.250 PCCPP:0.250 PCPCP:0.250 PPUP:0.250 (beta warmup)
+Epoch 3, train bpr 0.5725, val bpr 0.5647 | beta PCCPCP:0.250 PCCPP:0.250 PCPCP:0.250 PPUP:0.250 (beta warmup)
+Epoch 4, train bpr 0.5345, val bpr 0.5318 | beta PCCPCP:0.250 PCCPP:0.250 PCPCP:0.250 PPUP:0.250 (beta warmup)
+Epoch 5, train bpr 0.4991, val bpr 0.5035 | beta PCCPCP:0.243 PCCPP:0.235 PCPCP:0.305 PPUP:0.217
+Epoch 6, train bpr 0.4690, val bpr 0.4797 | beta PCCPCP:0.167 PCCPP:0.144 PCPCP:0.574 PPUP:0.115
+Epoch 7, train bpr 0.4440, val bpr 0.4622 | beta PCCPCP:0.049 PCCPP:0.038 PCPCP:0.889 PPUP:0.024
+Epoch 8, train bpr 0.4280, val bpr 0.4511 | beta PCCPCP:0.030 PCCPP:0.021 PCPCP:0.939 PPUP:0.011
+Epoch 9, train bpr 0.4157, val bpr 0.4437 | beta PCCPCP:0.041 PCCPP:0.027 PCPCP:0.919 PPUP:0.013
+Epoch 10, train bpr 0.4062, val bpr 0.4384 | beta PCCPCP:0.079 PCCPP:0.053 PCPCP:0.842 PPUP:0.026
+Epoch 11, train bpr 0.3997, val bpr 0.4343 | beta PCCPCP:0.109 PCCPP:0.082 PCPCP:0.758 PPUP:0.051
+Epoch 12, train bpr 0.3932, val bpr 0.4300 | beta PCCPCP:0.074 PCCPP:0.063 PCPCP:0.808 PPUP:0.055
+Epoch 13, train bpr 0.3866, val bpr 0.4260 | beta PCCPCP:0.051 PCCPP:0.046 PCPCP:0.846 PPUP:0.058
+Epoch 14, train bpr 0.3813, val bpr 0.4219 | beta PCCPCP:0.043 PCCPP:0.039 PCPCP:0.855 PPUP:0.063
+Epoch 15, train bpr 0.3762, val bpr 0.4179 | beta PCCPCP:0.035 PCCPP:0.030 PCPCP:0.884 PPUP:0.050
+Epoch 16, train bpr 0.3697, val bpr 0.4136 | beta PCCPCP:0.028 PCCPP:0.023 PCPCP:0.909 PPUP:0.040
+Epoch 17, train bpr 0.3642, val bpr 0.4091 | beta PCCPCP:0.020 PCCPP:0.015 PCPCP:0.938 PPUP:0.028
+Epoch 18, train bpr 0.3570, val bpr 0.4045 | beta PCCPCP:0.012 PCCPP:0.008 PCPCP:0.963 PPUP:0.017
+Epoch 19, train bpr 0.3501, val bpr 0.3998 | beta PCCPCP:0.007 PCCPP:0.005 PCPCP:0.980 PPUP:0.009
+Epoch 20, train bpr 0.3433, val bpr 0.3952 | beta PCCPCP:0.004 PCCPP:0.002 PCPCP:0.989 PPUP:0.005
+Epoch 21, train bpr 0.3377, val bpr 0.3907 | beta PCCPCP:0.002 PCCPP:0.001 PCPCP:0.994 PPUP:0.003
+Epoch 22, train bpr 0.3314, val bpr 0.3865 | beta PCCPCP:0.001 PCCPP:0.001 PCPCP:0.996 PPUP:0.002
+Epoch 23, train bpr 0.3248, val bpr 0.3825 | beta PCCPCP:0.001 PCCPP:0.001 PCPCP:0.997 PPUP:0.001
+Epoch 24, train bpr 0.3186, val bpr 0.3787 | beta PCCPCP:0.001 PCCPP:0.000 PCPCP:0.998 PPUP:0.001
+Epoch 25, train bpr 0.3120, val bpr 0.3751 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.001
+Epoch 26, train bpr 0.3072, val bpr 0.3719 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.000
+Epoch 27, train bpr 0.3010, val bpr 0.3689 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.000
+Epoch 28, train bpr 0.2962, val bpr 0.3662 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.000
+Epoch 29, train bpr 0.2905, val bpr 0.3637 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.000
+Epoch 30, train bpr 0.2859, val bpr 0.3612 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:0.999 PPUP:0.000
+Epoch 31, train bpr 0.2809, val bpr 0.3588 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 32, train bpr 0.2757, val bpr 0.3566 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 33, train bpr 0.2721, val bpr 0.3544 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 34, train bpr 0.2670, val bpr 0.3526 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 35, train bpr 0.2631, val bpr 0.3508 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 36, train bpr 0.2581, val bpr 0.3489 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 37, train bpr 0.2539, val bpr 0.3471 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 38, train bpr 0.2497, val bpr 0.3456 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 39, train bpr 0.2453, val bpr 0.3442 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 40, train bpr 0.2413, val bpr 0.3429 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 41, train bpr 0.2365, val bpr 0.3417 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 42, train bpr 0.2335, val bpr 0.3404 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 43, train bpr 0.2295, val bpr 0.3393 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 44, train bpr 0.2260, val bpr 0.3383 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 45, train bpr 0.2223, val bpr 0.3374 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 46, train bpr 0.2177, val bpr 0.3366 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 47, train bpr 0.2154, val bpr 0.3360 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 48, train bpr 0.2127, val bpr 0.3353 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 49, train bpr 0.2087, val bpr 0.3346 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 50, train bpr 0.2060, val bpr 0.3338 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 51, train bpr 0.2037, val bpr 0.3332 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 52, train bpr 0.2008, val bpr 0.3328 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 53, train bpr 0.1977, val bpr 0.3327 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 54, train bpr 0.1949, val bpr 0.3325 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 55, train bpr 0.1919, val bpr 0.3322 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 56, train bpr 0.1902, val bpr 0.3318 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 57, train bpr 0.1877, val bpr 0.3315 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 58, train bpr 0.1857, val bpr 0.3312 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 59, train bpr 0.1827, val bpr 0.3311 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 60, train bpr 0.1804, val bpr 0.3310 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Epoch 61, train bpr 0.1786, val bpr 0.3308 | beta PCCPCP:0.000 PCCPP:0.000 PCPCP:1.000 PPUP:0.000
+Early stop at epoch 61 (no val improvement > 0.0005 for 10 epochs)
+average train times 3.9364443594409573
+Best epoch 61, val bpr 0.3308
+Semantic attention over meta-paths:
+  PCCPCP: 0.0000
+  PCCPP: 0.0000
+  PCPCP: 1.0000
+  PPUP: 0.0000
+Test ranking metrics:
+  Precision@5: 0.0875
+  Recall@5: 0.4374
+  NDCG@5: 0.3040
+  Hit@5: 0.4374
+  Precision@10: 0.0596
+  Recall@10: 0.5963
+  NDCG@10: 0.3553
+  Hit@10: 0.5963
+  Precision@20: 0.0378
+  Recall@20: 0.7568
+  NDCG@20: 0.3959
+  Hit@20: 0.7568
+Per-user ranking metrics (33222 users, positives pooled per user):
+  Precision@5: 0.1119
+  Recall@5: 0.3383
+  NDCG@5: 0.2642
+  Hit@5: 0.4678
+  Precision@10: 0.0812
+  Recall@10: 0.4688
+  NDCG@10: 0.3105
+  Hit@10: 0.6204
+  Precision@20: 0.0560
+  Recall@20: 0.6151
+  NDCG@20: 0.3536
+  Hit@20: 0.7676
+By user training degree:
+  deg=0     (      8 edges)  NDCG@10 0.1383  Hit@10 0.3750
+  deg 1-5   (  15831 edges)  NDCG@10 0.3343  Hit@10 0.5472
+  deg 6-20  (  27948 edges)  NDCG@10 0.3627  Hit@10 0.5988
+  deg>=21   (  38197 edges)  NDCG@10 0.3586  Hit@10 0.6150
+By duplicate-edition twin in train (identical reviewer sets; 0.0% of eval edges have one):
+  no twin in train (  81944 edges)  NDCG@10 0.3553  Hit@10 0.5963
+  twin in train    (     40 edges)  NDCG@10 0.3206  Hit@10 0.5750
+Embeddings saved to output\AMAZON\v3/han_amazon_lp_rand4_d2_s1.pt (serve with recommend.py)
+------------------------------------------------------------
+End Time: 2026-10-29_22:34:35  exit code 0

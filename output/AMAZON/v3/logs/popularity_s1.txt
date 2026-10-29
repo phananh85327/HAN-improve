@@ -1,0 +1,43 @@
+Command: python popularity_baseline.py --dataset AMAZON --split-seed 1 --seed 1 --save-emb output\AMAZON\v3/popularity_s1.pt
+Start Time: 2026-10-29_12:40:19
+------------------------------------------------------------
+Namespace(root='data', dataset='AMAZON', target_relation='U,P', split_seed=1, allow_legacy_data=False, num_neg_eval=99, seed=1, save_emb='output\\AMAZON\\v3/popularity_s1.pt')
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+val bpr 4.4641 (scores are raw counts, so this is not comparable with the trained models' val bpr)
+Test ranking metrics:
+  Precision@5: 0.0607
+  Recall@5: 0.3033
+  NDCG@5: 0.2103
+  Hit@5: 0.3033
+  Precision@10: 0.0423
+  Recall@10: 0.4233
+  NDCG@10: 0.2490
+  Hit@10: 0.4233
+  Precision@20: 0.0283
+  Recall@20: 0.5658
+  NDCG@20: 0.2849
+  Hit@20: 0.5658
+Per-user ranking metrics (33222 users, positives pooled per user):
+  Precision@5: 0.0810
+  Recall@5: 0.2451
+  NDCG@5: 0.1928
+  Hit@5: 0.3548
+  Precision@10: 0.0588
+  Recall@10: 0.3455
+  NDCG@10: 0.2276
+  Hit@10: 0.4800
+  Precision@20: 0.0414
+  Recall@20: 0.4698
+  NDCG@20: 0.2633
+  Hit@20: 0.6222
+By user training degree:
+  deg=0     (      8 edges)  NDCG@10 0.4539  Hit@10 0.6250
+  deg 1-5   (  15831 edges)  NDCG@10 0.2598  Hit@10 0.4312
+  deg 6-20  (  27948 edges)  NDCG@10 0.2586  Hit@10 0.4347
+  deg>=21   (  38197 edges)  NDCG@10 0.2374  Hit@10 0.4117
+By duplicate-edition twin in train (identical reviewer sets; 0.0% of eval edges have one):
+  no twin in train (  81944 edges)  NDCG@10 0.2491  Hit@10 0.4234
+  twin in train    (     40 edges)  NDCG@10 0.0690  Hit@10 0.2250
+Saved to output\AMAZON\v3/popularity_s1.pt
+------------------------------------------------------------
+End Time: 2026-10-29_12:40:39  exit code 0

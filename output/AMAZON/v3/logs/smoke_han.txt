@@ -1,0 +1,80 @@
+Command: python train_han.py --dataset AMAZON --split-seed 1 --graph-dir data\AMAZON\metapath_graphs_v3 --topk 20 --hidden 512 --num-heads 8 --feat-drop 0.2 --attn-drop 0.2 --lr 0.001 --weight-decay 0 --user-tower embedding --batch-size 100000 --vram-fraction 0.9 --stage 150 --patience 10 --min-delta 0.0005 --beta-warmup 15 --arch amazon_lp_rand6_d2 --seed 1 --stage 3 --beta-warmup 1 --save-emb output\AMAZON\v3/smoke_han.pt
+Start Time: 2026-10-29_12:00:02
+------------------------------------------------------------
+Namespace(root='data', dataset='AMAZON', target_relation='U,P', paths='', arch='amazon_lp_rand6_d2', topk=20, graph_dir='data\\AMAZON\\metapath_graphs_v3', split_seed=1, allow_legacy_data=False, num_neg_eval=99, hidden=512, num_heads=8, feat_drop=0.2, attn_drop=0.2, semantic_tau=1.0, beta_warmup=1, independent_init=False, no_grad_ckpt=False, vram_fraction=0.9, lr=0.001, weight_decay=0.0, stage=3, save_emb='output\\AMAZON\\v3/smoke_han.pt', user_tower='embedding', patience=10, min_delta=0.0005, batch_size=100000, paper_config=False, gpu=0, cpu=False, seed=1)
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+Loading meta-path graphs from data\AMAZON\metapath_graphs_v3:
+  PCCCP: 1871879 edges (incl. self-loops); tie-break random (seed 1)
+  PCPPUP: 1903711 edges (incl. self-loops); tie-break random (seed 1)
+  PCPUPP: 1860111 edges (incl. self-loops); tie-break random (seed 1)
+  PPCPP: 1476969 edges (incl. self-loops); tie-break random (seed 1)
+  PPP: 552231 edges (incl. self-loops); tie-break random (seed 1)
+  PPUP: 1608767 edges (incl. self-loops); tie-break random (seed 1)
+HAN_LP(
+  (gats): ModuleList(
+    (0-5): 6 x GATLayer(
+      (fc): Linear(in_features=260, out_features=512, bias=False)
+      (feat_drop): Dropout(p=0.2, inplace=False)
+      (attn_drop): Dropout(p=0.2, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+  )
+  (semantic): SemanticAttention(
+    (project): Sequential(
+      (0): Linear(in_features=512, out_features=128, bias=True)
+      (1): Tanh()
+      (2): Linear(in_features=128, out_features=1, bias=False)
+    )
+  )
+)
+# Params: 28301056
+  0%|          | 0/3 [00:00<?, ?it/s] 33%|###3      | 1/3 [00:08<00:16,  8.39s/it] 67%|######6   | 2/3 [00:16<00:08,  8.02s/it]100%|##########| 3/3 [00:23<00:00,  7.88s/it]100%|##########| 3/3 [00:23<00:00,  7.96s/it]
+Epoch 0, train bpr 0.6818, val bpr 0.6638 | beta PCCCP:0.167 PCPPUP:0.167 PCPUPP:0.167 PPCPP:0.167 PPP:0.167 PPUP:0.167 (beta warmup)
+Epoch 1, train bpr 0.6446, val bpr 0.6280 | beta PCCCP:0.177 PCPPUP:0.162 PCPUPP:0.170 PPCPP:0.169 PPP:0.170 PPUP:0.151
+Epoch 2, train bpr 0.6039, val bpr 0.5885 | beta PCCCP:0.229 PCPPUP:0.134 PCPUPP:0.191 PPCPP:0.172 PPP:0.178 PPUP:0.095
+average train times 7.408080657323201
+Best epoch 2, val bpr 0.5885
+Semantic attention over meta-paths:
+  PCCCP: 0.2294
+  PCPPUP: 0.1342
+  PCPUPP: 0.1911
+  PPCPP: 0.1719
+  PPP: 0.1780
+  PPUP: 0.0954
+Test ranking metrics:
+  Precision@5: 0.0252
+  Recall@5: 0.1258
+  NDCG@5: 0.0748
+  Hit@5: 0.1258
+  Precision@10: 0.0256
+  Recall@10: 0.2561
+  NDCG@10: 0.1164
+  Hit@10: 0.2561
+  Precision@20: 0.0247
+  Recall@20: 0.4935
+  NDCG@20: 0.1759
+  Hit@20: 0.4935
+Per-user ranking metrics (33222 users, positives pooled per user):
+  Precision@5: 0.0220
+  Recall@5: 0.0734
+  NDCG@5: 0.0487
+  Hit@5: 0.0994
+  Precision@10: 0.0221
+  Recall@10: 0.1495
+  NDCG@10: 0.0747
+  Hit@10: 0.1974
+  Precision@20: 0.0226
+  Recall@20: 0.3061
+  NDCG@20: 0.1172
+  Hit@20: 0.3920
+By user training degree:
+  deg=0     (      8 edges)  NDCG@10 0.0538  Hit@10 0.1250
+  deg 1-5   (  15831 edges)  NDCG@10 0.0880  Hit@10 0.1954
+  deg 6-20  (  27948 edges)  NDCG@10 0.1090  Hit@10 0.2377
+  deg>=21   (  38197 edges)  NDCG@10 0.1335  Hit@10 0.2948
+By duplicate-edition twin in train (identical reviewer sets; 0.0% of eval edges have one):
+  no twin in train (  81944 edges)  NDCG@10 0.1164  Hit@10 0.2561
+  twin in train    (     40 edges)  NDCG@10 0.1108  Hit@10 0.3000
+Embeddings saved to output\AMAZON\v3/smoke_han.pt (serve with recommend.py)
+------------------------------------------------------------
+End Time: 2026-10-29_12:00:47  exit code 0

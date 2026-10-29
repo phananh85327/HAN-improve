@@ -1,0 +1,7 @@
+run_all.bat check
+python: C:\Users\PC\.conda\envs\lmsps_env\python.exe
+=== check: is data\AMAZON the data the LMSPS search ran on?
+SAME: data\AMAZON with split 1 is the search's data (training-edge fingerprint c5f7bccbf61c1b0f)
+
+Stage "check" finished.
+Press any key to continue . . .

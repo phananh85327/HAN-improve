@@ -1,0 +1,17 @@
+Command: python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_rand4_d5 --topk 20 --split-seed 1 --graph-dir data\AMAZON\metapath_graphs_v3 --skip-existing
+Start Time: 2026-10-29_11:49:39
+------------------------------------------------------------
+C:\Users\PC\.conda\envs\lmsps_env\lib\site-packages\scipy\sparse\_index.py:145: SparseEfficiencyWarning: Changing the sparsity structure of a csr_matrix is expensive. lil_matrix is more efficient.
+  self._set_arrayXarray(i, j, x)
+Loading data/AMAZON ...
+Building train-only split (seed 1) ...
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+Skipping PCCPPP: data\AMAZON\metapath_graphs_v3\PCCPPP_top20_split1.npz exists
+Materializing PCPP (topk 20, tie-break random) ...
+  PCPP: 48883 nodes, 1728634 edges, mean degree 35.4, 10 isolated nodes -> data\AMAZON\metapath_graphs_v3\PCPP_top20_split1.npz
+Materializing PCPUPP (topk 20, tie-break random) ...
+  PCPUPP: 48883 nodes, 1811228 edges, mean degree 37.1, 0 isolated nodes -> data\AMAZON\metapath_graphs_v3\PCPUPP_top20_split1.npz
+Skipping PPP: data\AMAZON\metapath_graphs_v3\PPP_top20_split1.npz exists
+Done.
+------------------------------------------------------------
+End Time: 2026-10-29_11:50:23  exit code 0

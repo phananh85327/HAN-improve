@@ -1,0 +1,13 @@
+Command: python build_metapath_graphs.py --dataset AMAZON --arch amazon_lp_manual_5 --topk 20 --split-seed 1 --graph-dir data\AMAZON\metapath_graphs_v3 --skip-existing
+Start Time: 2026-10-29_11:46:42
+------------------------------------------------------------
+Loading data/AMAZON ...
+Building train-only split (seed 1) ...
+data: data\AMAZON (lsa 256-d titles, leaf categories), nodes per type {0: 48883, 1: 37411, 2: 53569}; split 1: training-edge fingerprint c5f7bccbf61c1b0f
+Skipping PP: data\AMAZON\metapath_graphs_v3\PP_top20_split1.npz exists
+Skipping PUP: data\AMAZON\metapath_graphs_v3\PUP_top20_split1.npz exists
+Skipping PCP: data\AMAZON\metapath_graphs_v3\PCP_top20_split1.npz exists
+Skipping PPUP: data\AMAZON\metapath_graphs_v3\PPUP_top20_split1.npz exists
+Done.
+------------------------------------------------------------
+End Time: 2026-10-29_11:46:58  exit code 0
