@@ -26,7 +26,7 @@ This script prints, for one dataset root and split seed:
 
 Usage:
     python check_edition_twins.py --split-seed 1
-    python check_edition_twins.py --split-seed 1 --products-csv output/AMAZON/Filtered_Output/filtered_products.csv --jaccard
+    python check_edition_twins.py --split-seed 1 --products-csv data/AMAZON/AMAZON_filtered/filtered_products.csv --jaccard
 """
 
 import argparse
