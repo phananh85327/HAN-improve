@@ -121,11 +121,30 @@ archs = {
         ['PCCPP', 'PPCPPP', 'PPP', 'PPPPP', 'PPPPUP', 'PUPUP'], []],
     "amazon_lp_rand6_d5": [
         ['PCCPPP', 'PCPPCP', 'PCPUP', 'PPCPUP', 'PPPPPP', 'PPPUP'], []],
-    # ---- Fleet v3 (the search rerun on the rebuilt data): paste the amazon_lp_v3_f4_a<i> and
-    # amazon_lp_v3_f6_a<i> entries printed in the LMSPS repo's
-    # hgb\logs\Fleet v3\final_ns4|final_ns6\reselect_d010.txt here (with their "# ----" line);
-    # run_all.bat trains every one of them, and amazon_lp_v3_f4_a1 / _f6_a1 are the headline
-    # sets of the main comparison.
+    # ---- Fleet v3 (the search rerun on the rebuilt data), from the LMSPS repo's
+    # hgb\logs\Fleet v3\final_ns4|final_ns6\reselect_d010.txt: per ns, the first two averaged
+    # one-SE sets and the vote's consensus _c (LMSPS review part 4). amazon_lp_v3_f4_a1 / _f6_a1
+    # are the headline sets of the main comparison.
+    # ---- split-seed 1, stage 150, ns 4, num_final 10, alpha-edges val, wstep-kfold 4, dropout 0.5, plain relations, data c5f7bccbf61c1b0f; 30 runs in logs\Fleet v3\final_ns4
+    # averaged one-SE set, 18 hops, +0.0000 vs the best averaged score, scored in 5/30 runs
+    "amazon_lp_v3_f4_a1": [
+        ['PCCPCP', 'PPCCPP', 'PPUPP', 'PUPUP'], []],
+    # averaged one-SE set, 19 hops, +0.0010 vs the best averaged score, scored in 5/30 runs
+    "amazon_lp_v3_f4_a2": [
+        ['PCCPPP', 'PPCCPP', 'PPPUPP', 'PUPUP'], []],
+    # path-frequency consensus in 5/30 runs (vote, delta 0.010)
+    "amazon_lp_v3_f4_c": [
+        ['PCCPP', 'PPUPP', 'PUPPUP', 'PUPUP'], []],
+    # ---- split-seed 1, stage 150, ns 6, num_final 10, alpha-edges val, wstep-kfold 4, dropout 0.5, plain relations, data c5f7bccbf61c1b0f; 30 runs in logs\Fleet v3\final_ns6
+    # averaged one-SE set, 24 hops, +0.0024 vs the best averaged score, scored in 6/30 runs
+    "amazon_lp_v3_f6_a1": [
+        ['PCCP', 'PCCPP', 'PPCCPP', 'PPUP', 'PUPPUP', 'PUPUP'], []],
+    # averaged one-SE set, 25 hops, +0.0018 vs the best averaged score, scored in 6/30 runs
+    "amazon_lp_v3_f6_a2": [
+        ['PCCP', 'PCCPCP', 'PPCCPP', 'PPUP', 'PUPPUP', 'PUPUP'], []],
+    # path-frequency consensus in 5/30 runs (vote, delta 0.010); also one-SE set a9
+    "amazon_lp_v3_f6_c": [
+        ['PCCP', 'PCCPUP', 'PPCCPP', 'PPUPP', 'PUPPUP', 'PUPUP'], []],
 }
 
 # reselect_fleet.py names the vote's consensus <prefix>_c, and the README and the HAN repo
