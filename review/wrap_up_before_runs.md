@@ -24,6 +24,7 @@ real LMSPS output.
 | W9 | The frozen random sets | The 36 candidates are the same in Fleet v3 | OK |
 | W10 | `recommend.py` (not reviewed before) | Works on the rebuilt data: products by ASIN, users by `--users-csv` (the rebuilt `filtered_users.csv` has one row per user in node-id order). Its docstring still says node.dat holds user display names; the rebuilt node.dat holds the customer ids | Ignore: a demo tool, not part of the evaluation |
 | W11 | `check_edition_twins.py`'s usage example points at the old C# output folder | `--products-csv` is optional and `run_all.bat` doesn't pass it | Ignore |
+| W12 | Does `push` upload the run logs? | `.gitignore`'s `logs/` matched every folder named `logs`, including `output/AMAZON/v3/logs`: `push` would have uploaded `results.csv` but no log | **Must fix: fixed** (found after the wrap-up commit). The rule is `/logs/`, the top-level folder only |
 
 ## Review status
 

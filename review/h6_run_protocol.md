@@ -132,7 +132,7 @@ data:
 | P5 | Exit codes in the logs | The old log line took `%ERRORLEVEL%` after the date command | Fixed: the run's own code |
 | P6 | One seed for everything | Seed spread on the small sample is as large as the differences between sets | Seeds 2-3 for the main comparison |
 | P7 | Random sets | The old ones were schema walks and no longer in `arch.py` | 10 draws from the search's 36 candidates, frozen in `arch.py` |
-| P8 | Logs could not be pushed | `logs/` is in `.gitignore` | Logs under `output\AMAZON\v3`; `push` stage |
+| P8 | Logs could not be pushed | `logs/` is in `.gitignore` | Logs under `output\AMAZON\v3`; `push` stage. The rule `logs/` matched every folder named `logs`, so it ignored `output/AMAZON/v3/logs` too; anchored to `/logs/` on 2026-10-29 |
 | P9 | Line endings | A batch file checked out with LF endings can lose its labels in cmd | `.gitattributes`: `*.bat` always CRLF |
 | P10 | Paper-setting rows | HAN collapses without warm-up (H3); `--paper-walks` costs about 60 h | Dropped |
 

@@ -1,7 +1,7 @@
 *.pt
 .claude/
 chat/
-logs/
+/logs/
 data/
 output/AMAZON/Filtered_Output/
 preprocessing/
