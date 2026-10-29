@@ -13,10 +13,8 @@ REM Before the first run:
 REM   1. copy the rebuilt data\AMAZON from the LMSPS repo (node.dat, link.dat, label.dat,
 REM      label.dat.test, meta.json) and delete the old graph folders under data\AMAZON
 REM   2. point SEARCH_RECORD below at any one Fleet v3 search record
-REM   3. once the fleets are done, paste the Fleet v3 arch.py entries (logs\Fleet v3\
-REM      final_ns4|6\reselect_d010.txt in the LMSPS repo: amazon_lp_v3_f4_a1, ...) into
-REM      arch.py. Until then build, han and m2v run the manual and random sets only, and
-REM      seeds waits
+REM The six Fleet v3 sets are already in arch.py (LMSPS review part 4): per size, the first
+REM two averaged one-SE sets and the vote's consensus.
 REM
 REM Stages ("all" runs them in this order; about 20 GPU hours in total, see
 REM review\h6_run_protocol.md):
@@ -59,7 +57,8 @@ REM the main comparison: the simplest LMSPS set of each size against the manual 
 REM size (frozen before any result: review\manual_metapath_sets in the LMSPS repo)
 set HEADLINE=amazon_lp_v3_f4_a1 amazon_lp_v3_f6_a1 amazon_lp_manual_5 amazon_lp_manual_6
 set MORE_SEEDS=2 3
-set SMOKE_KEY=amazon_lp_manual_6
+REM the largest set by graph edges on the rebuilt data (9.3M; M6 has 7.7M): the GPU memory check
+set SMOKE_KEY=amazon_lp_rand6_d2
 
 REM ---- environment ---------------------------------------------------------------------
 REM in a plain cmd `python` is the Windows-Store stub, so activate lmsps_env (another
@@ -75,10 +74,9 @@ if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 REM ---- the meta-path sets (arch.py keys) and the model settings --------------------------
 set MANUAL=amazon_lp_manual_1 amazon_lp_manual_2 amazon_lp_manual_3 amazon_lp_manual_4 amazon_lp_manual_5 amazon_lp_manual_6 amazon_lp_manual_7 amazon_lp_manual_8
 set RANDOM_SETS=amazon_lp_rand4_d1 amazon_lp_rand4_d2 amazon_lp_rand4_d3 amazon_lp_rand4_d4 amazon_lp_rand4_d5 amazon_lp_rand6_d1 amazon_lp_rand6_d2 amazon_lp_rand6_d3 amazon_lp_rand6_d4 amazon_lp_rand6_d5
-REM the Fleet v3 sets: every amazon_lp_v3_f4_a<i> and amazon_lp_v3_f6_a<i> in arch.py
-set LMSPS=
-%PY% arch_keys.py amazon_lp_v3_f4_a amazon_lp_v3_f6_a > "%TEMP%\han_v3_keys.txt" 2> "%TEMP%\han_v3_keys.err"
-if not errorlevel 1 set /p LMSPS=<"%TEMP%\han_v3_keys.txt"
+REM the Fleet v3 sets (LMSPS review part 4): per size, the first two averaged one-SE sets and
+REM the vote's consensus
+set LMSPS=amazon_lp_v3_f4_a1 amazon_lp_v3_f4_a2 amazon_lp_v3_f4_c amazon_lp_v3_f6_a1 amazon_lp_v3_f6_a2 amazon_lp_v3_f6_c
 
 set COMMON=--dataset AMAZON --split-seed %SPLIT%
 set HAN_REC=%COMMON% --graph-dir %GDIR% --stage 150 --patience 10 --beta-warmup 15
@@ -139,7 +137,6 @@ exit /b 0
 
 :build
 echo === build: graphs of every set into %GDIR%
-if not defined LMSPS call :no_lmsps_yet
 for %%A in (%LMSPS% %MANUAL% %RANDOM_SETS%) do (
     call :exec "build_%%A" %PY% build_metapath_graphs.py --dataset AMAZON --arch %%A --topk 20 --split-seed %SPLIT% --graph-dir %GDIR% --skip-existing || exit /b 1
 )
@@ -165,7 +162,6 @@ exit /b 0
 
 :han
 echo === han: seed 1 on every set
-if not defined LMSPS call :no_lmsps_yet
 for %%A in (%LMSPS% %MANUAL% %RANDOM_SETS%) do (
     call :train han_%%A_s1 %PY% train_han.py %HAN_REC% --arch %%A --seed 1
 )
@@ -178,7 +174,6 @@ exit /b 0
 
 :m2v
 echo === m2v: seed 1 on every set
-if not defined LMSPS call :no_lmsps_yet
 for %%A in (%LMSPS% %MANUAL% %RANDOM_SETS%) do (
     call :train m2v_%%A_s1 %PY% train_metapath2vec.py %M2V_FAST% --arch %%A --seed 1
 )
@@ -186,7 +181,6 @@ exit /b 0
 
 :seeds
 echo === seeds %MORE_SEEDS%: HAN and metapath2vec on %HEADLINE%, and GAT
-call :need_lmsps || exit /b 1
 for %%S in (%MORE_SEEDS%) do (
     for %%A in (%HEADLINE%) do (
         call :train han_%%A_s%%S %PY% train_han.py %HAN_REC% --arch %%A --seed %%S
@@ -214,25 +208,6 @@ git push || echo   push failed: check that git is on PATH and the branch tracks 
 exit /b 0
 
 REM ============================== helpers ===============================================
-REM :no_lmsps_yet -- the Fleet v3 keys are not in arch.py yet: say so, train the others
-:no_lmsps_yet
-type "%TEMP%\han_v3_keys.err"
-echo   the Fleet v3 sets are not in arch.py yet: only the manual and random sets now; run this
-echo   stage again once they are pasted ^(finished runs are skipped^)
-exit /b 0
-
-REM :need_lmsps -- the Fleet v3 keys must be in arch.py (dry mode: placeholders)
-:need_lmsps
-if defined LMSPS exit /b 0
-type "%TEMP%\han_v3_keys.err"
-if "%DRY%"=="1" (
-    set LMSPS=amazon_lp_v3_f4_a1 amazon_lp_v3_f6_a1
-    echo   [dry] placeholder keys until the Fleet v3 entries are in arch.py
-    exit /b 0
-)
-echo   paste the Fleet v3 entries ^(amazon_lp_v3_f4_a1, ...^) into arch.py first
-exit /b 1
-
 REM :train <name> <command...> -- result %OUT%\<name>.pt, log %LOGDIR%\<name>.txt; skipped if
 REM the result exists
 :train

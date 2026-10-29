@@ -20,8 +20,9 @@ one optional test).
   rebuild; `--allow-legacy-data` to use it on purpose). `python check_handover.py <LMSPS search
   record>` confirms that the data is the data the search ran on.
 - the meta-path sets, as `arch.py` keys (`--arch`) or a comma-separated list (`--paths`):
-  - the LMSPS Fleet v3 sets `amazon_lp_v3_f4_a<i>` / `amazon_lp_v3_f6_a<i>`, pasted from the LMSPS
-    repo's `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt`
+  - the LMSPS Fleet v3 sets `amazon_lp_v3_f4_a1`, `_a2`, `_c` and `amazon_lp_v3_f6_a1`, `_a2`,
+    `_c`, from the LMSPS repo's `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt` (per
+    size, the first two averaged one-SE sets and the vote's consensus; LMSPS review part 4)
   - the manual sets `amazon_lp_manual_1..8` (M1-M8 of the LMSPS repo's
     `review/manual_metapath_sets.md`)
   - the random draws `amazon_lp_rand4_d1..5` / `amazon_lp_rand6_d1..5`
@@ -40,12 +41,20 @@ meta-path set with one seed. It writes `output/AMAZON/v3/<model>_<key>_s<seed>.p
 
 The design, the reasons and the cost are in `review/h6_run_protocol.md`.
 
+First time:
+1. Copy the rebuilt data from the LMSPS repo's `data/AMAZON` (`node.dat`, `link.dat`,
+   `label.dat`, `label.dat.test`, `meta.json`) into this repo's `data/AMAZON`, and move the old
+   `metapath_graphs*` folders out of it.
+2. Check `SEARCH_RECORD` and `CONDA_ROOT` at the top of `run_all.bat` (the record path assumes the
+   two repos sit side by side).
+3. `run_all.bat dry`, then `run_all.bat check`: it must print SAME.
+
 | stage | what |
 |---|---|
 | `check` | `check_handover.py` against a Fleet v3 search record (`SEARCH_RECORD` at the top of the file) |
 | `build` | the graphs of every set into `data/AMAZON/metapath_graphs_v3` (graphs from other data are rebuilt) |
 | `audit` | `check_graph_bias.py`, `check_edition_twins.py` |
-| `smoke` | a few epochs of HAN on a 6-path set and of GAT: GPU memory check, nothing kept |
+| `smoke` | a few epochs of HAN on the largest set (`amazon_lp_rand6_d2`, 9.3M graph edges) and of GAT: GPU memory check, nothing kept |
 | `popularity` | the popularity floor |
 | `han` | HAN, seed 1, on the Fleet v3, manual and random sets |
 | `gat` | GAT on the union graph, seed 1 |
@@ -54,12 +63,18 @@ The design, the reasons and the cost are in `review/h6_run_protocol.md`.
 | `summarize` | `summarize_results.py --group --full-ranking`, also saved as `output/AMAZON/v3/results.csv` |
 | `push` | commit the logs and the table (results `.pt` files stay local) and push |
 
-Before the Fleet v3 sets are in `arch.py`, `build`, `han` and `m2v` train the manual and random
-sets only, and `seeds` waits. In all, about 20-25 GPU hours on a 12 GB card.
+In all: 24 sets (6 LMSPS, 8 manual, 10 random) for HAN and metapath2vec at seed 1, the 4
+headline sets at seeds 2 and 3, GAT at seeds 1-3 and popularity; about 20-25 GPU hours on a
+12 GB card.
 
 How to read the results table:
 - **Main comparison:** LMSPS against manual at the same number of paths, `amazon_lp_v3_f4_a1`
   against M5 and `amazon_lp_v3_f6_a1` against M6, 3 seeds each.
+  - `_a2` and `_c` show whether the conclusion depends on which LMSPS set stands for the search:
+    the second simplest one-SE set, and the set most runs agreed on.
+  - The LMSPS sets' category paths (`PCCP`, `PCCPP`, `PPCCPP`, ...) reach no product for about
+    80% of products (books and music; LMSPS review part 4). In HAN those products see only
+    themselves in that channel, so read a category path's weight as "DVDs and videos".
   - The random draws ask whether the search picks better than chance from its own 36
     candidates. Report their spread, never a single draw.
   - Popularity is the floor every model must clear.
@@ -184,7 +199,7 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
 | summarize_results.py | one table over all saved blobs (data version, settings variant, val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds; `--full-ranking` |
 | tests/ | `python -m pytest tests` (about a minute on a CPU) |
 | review/ | the HAN repo review (parts H1-H7; H8, the results, follows the rerun) |
-| run_all.bat | the complete experiment flow by stage (see "Run flow"); `arch_keys.py` lists the Fleet v3 keys for it |
+| run_all.bat | the complete experiment flow by stage (see "Run flow") |
 | recommend.py | ASIN -> similar products; user -> top-k products |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
 

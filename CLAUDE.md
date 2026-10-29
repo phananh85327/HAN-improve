@@ -45,8 +45,11 @@
   the random draws `amazon_lp_rand4_d1..5` / `amazon_lp_rand6_d1..5` in `arch.py` (frozen
   before any Fleet v3 result); the main comparison `amazon_lp_v3_f4_a1` vs `amazon_lp_manual_5`
   and `amazon_lp_v3_f6_a1` vs `amazon_lp_manual_6`, 3 seeds.
-- The Fleet v3 sets are pasted into `arch.py` from the LMSPS repo's
-  `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt` (`amazon_lp_v3_f4_a<i>`, `_f6_a<i>`).
+- The Fleet v3 sets are in `arch.py` (2026-10-29), from the LMSPS repo's
+  `hgb/logs/Fleet v3/final_ns4|final_ns6/reselect_d010.txt`: `amazon_lp_v3_f4_a1`, `_a2`, `_c`
+  and `amazon_lp_v3_f6_a1`, `_a2`, `_c` (per size, the first two averaged one-SE sets and the
+  vote's consensus; LMSPS review part 4). `run_all.bat` lists exactly these six. Their category
+  paths are empty for ~80% of products (books, music): keep them as selected.
 - The whole experiment is `run_all.bat <stage>`: check, build, audit, smoke, popularity, han,
   gat, m2v, seeds, summarize, push; `dry` prints every command. A run whose result exists is
   skipped; the user also starts single runs by hand. Details and the reading rules are in README

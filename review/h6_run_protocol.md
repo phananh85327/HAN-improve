@@ -41,7 +41,7 @@ A run is one model trained on one meta-path set with one seed.
 
 | Path sets | HAN | metapath2vec | Seeds |
 |---|---|---|---|
-| LMSPS Fleet v3: every `amazon_lp_v3_f4_a<i>` and `amazon_lp_v3_f6_a<i>` you paste into `arch.py` | yes | yes | 1 |
+| LMSPS Fleet v3: `amazon_lp_v3_f4_a1`, `_a2`, `_c` and `amazon_lp_v3_f6_a1`, `_a2`, `_c` (per size, the first two averaged one-SE sets and the vote's consensus; LMSPS review part 4) | yes | yes | 1 |
 | Manual M1-M8 (`amazon_lp_manual_1..8`) | yes | yes | 1 |
 | Random: `amazon_lp_rand4_d1..5`, `amazon_lp_rand6_d1..5` | yes | yes | 1 |
 | **Main comparison:** `amazon_lp_v3_f4_a1` against `amazon_lp_manual_5` (4 paths), `amazon_lp_v3_f6_a1` against `amazon_lp_manual_6` (6 paths) | yes | yes | **1, 2, 3** |
@@ -51,6 +51,10 @@ A run is one model trained on one meta-path set with one seed.
 - **Why `a1` is the LMSPS set of the main comparison.** It is the simplest averaged one-SE set
   (LMSPS review part 5), fixed before any result. The other LMSPS sets are in the full table; if
   you pick a "best" one, pick it by validation BPR, never by a test number.
+- **Why only six LMSPS sets (added 2026-10-29, after the fleets, before any HAN run).** The ns 6
+  one-SE window holds 32 near-identical sets, so "every `_a<i>`" would have meant 32 HAN runs of
+  nearly one model. `_a2` and the vote's consensus `_c` show whether the conclusion depends on
+  which LMSPS set stands for the search (LMSPS review part 4).
 - **Why M5 and M6.** They are the expert sets with the same number of paths as the LMSPS sets
   (`review/manual_metapath_sets.md` in the LMSPS repo), also fixed before any result.
 - **Why 4 and 6 paths.** One short set and one long set, as you chose, is a sound design: it
@@ -66,7 +70,7 @@ data:
 
 | Runs | Count | Time per run | Total |
 |---|---|---|---|
-| HAN, seed 1 | about 24 (the number of Fleet v3 sets is not known yet) | about 20-45 min | about 12 h |
+| HAN, seed 1 | 24 (6 LMSPS, 8 manual, 10 random) | about 20-45 min | about 12 h |
 | HAN, seeds 2-3, main comparison | 8 | about 30 min | about 4 h |
 | metapath2vec | about 32 | 5-10 min | about 4 h |
 | GAT | 3 | about 1 h (it trains longer now that it can't use the target edge) | about 3 h |
@@ -109,16 +113,13 @@ data:
 - **Stopping early:**
   - `check` stops `all` when the data is not the search's
   - `build` and `smoke` stop it on a failure
-- **Before the Fleet v3 sets exist:** `build`, `han` and `m2v` train the manual and random sets
-  with a note, so those can run any time; `seeds` waits until the Fleet v3 entries are in
-  `arch.py`. `smoke` uses the 6-path manual set, so it can run first too.
+- **The sets:** `LMSPS`, `MANUAL` and `RANDOM_SETS` list the `arch.py` keys explicitly. (Before
+  the fleets finished, `arch_keys.py` looked the Fleet v3 keys up; with the six sets fixed it was
+  removed on 2026-10-29.)
 - **Settings at the top of the file:**
-  - `SEARCH_RECORD`: the Fleet v3 record the data is checked against (any one; the first fleet run
-    makes one)
+  - `SEARCH_RECORD`: the Fleet v3 record the data is checked against (any one)
   - `HEADLINE`, `MORE_SEEDS`, `SMOKE_KEY`, and the output and graph folders
   - `CONDA_ROOT`: as in the LMSPS script
-- `arch_keys.py` lists the Fleet v3 keys that are in `arch.py`, so the batch file needs no edit
-  when they arrive.
 
 ## Verdicts
 
@@ -127,7 +128,7 @@ data:
 | P1 | The old `run_all.bat` cannot run the rerun | Removed random keys (KeyError), Fleet v2 keys, the old output folder (old results skipped by name or mixed into the table), `--paper-config` stages | **Must fix: rewritten** |
 | P2 | Interrupted runs | Runs are skipped by result file; stages run alone; `dry` | Done |
 | P3 | Data hand-over before the runs | `check` stage (`check_handover.py`, H1) | Added |
-| P4 | GPU memory | GAT now builds an extra edge list per step (H4); HAN's 6-path sets are the biggest runs | `smoke` stage (HAN on M6, GAT) |
+| P4 | GPU memory | GAT now builds an extra edge list per step (H4); HAN's 6-path sets are the biggest runs | `smoke` stage (HAN on the largest set, GAT). With the full graphs built (2026-10-29) the largest is `amazon_lp_rand6_d2`, 9.3M edges, not M6 (7.7M) |
 | P5 | Exit codes in the logs | The old log line took `%ERRORLEVEL%` after the date command | Fixed: the run's own code |
 | P6 | One seed for everything | Seed spread on the small sample is as large as the differences between sets | Seeds 2-3 for the main comparison |
 | P7 | Random sets | The old ones were schema walks and no longer in `arch.py` | 10 draws from the search's 36 candidates, frozen in `arch.py` |
@@ -137,15 +138,14 @@ data:
 
 ## How it was checked
 
-- **Static checks, since cmd can't run here:** `tests/test_run_all.py`, 4 tests:
+- **Static checks, since cmd can't run here:** `tests/test_run_all.py`, 3 tests:
   - every label used is defined
   - every stage has a label
   - every script exists and has every flag the file passes it
-  - every set in the file exists in `arch.py`
-  - `arch_keys.py` matches only the keys it should
+  - every set in the file exists in `arch.py`, and `LMSPS` lists exactly the Fleet v3 keys there
 
-  Five deliberate typos are all caught: a misspelt flag, a missing label, an unknown key, a
-  missing script, an unknown stage.
+  Deliberate typos are all caught: a misspelt flag, a missing label, an unknown key, a missing
+  script, an unknown stage, a Fleet v3 set left out.
 - **The random draws** are reproduced by the commands written above them in `arch.py`. The 36
   candidates are the same with the Fleet v3 flags (checked against a search record with those flags).
 - **On your PC, first:** `run_all.bat dry`, then `run_all.bat check`.
@@ -160,3 +160,6 @@ Committed on `claude/han-review`:
   - where the Fleet v3 entries go
 - `.gitattributes`: new.
 - `tests/test_run_all.py`: new.
+
+After the fleets (2026-10-29): the six Fleet v3 sets in `arch.py`; `run_all.bat` lists them
+and `arch_keys.py` is gone (`review/wrap_up_before_runs.md`).

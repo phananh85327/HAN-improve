@@ -10,7 +10,6 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 from arch import archs  # noqa: E402
-from arch_keys import keys_for  # noqa: E402
 
 BAT = open(os.path.join(REPO, 'run_all.bat'), encoding='utf-8').read()
 LINES = [l.strip() for l in BAT.splitlines() if l.strip() and not l.strip().upper().startswith('REM')]
@@ -54,20 +53,11 @@ def test_scripts_and_flags_exist():
 
 def test_sets_exist_in_arch():
     env = variables()
-    for name in ('MANUAL', 'RANDOM_SETS'):
+    for name in ('LMSPS', 'MANUAL', 'RANDOM_SETS', 'HEADLINE', 'SMOKE_KEY'):
         for key in env[name].split():
             assert key in archs, key
-    stems = ['amazon_lp_v3_f4_a', 'amazon_lp_v3_f6_a']
-    assert f'arch_keys.py {" ".join(stems)}' in BAT
-    for key in env['HEADLINE'].split() + [env['SMOKE_KEY']]:
-        assert key in archs or any(re.fullmatch(re.escape(s) + r'\d+', key) for s in stems), key
-
-
-def test_arch_keys_stems():
-    found = keys_for(['amazon_lp_manual_', 'amazon_lp_rand4_d', 'amazon_lp_nothing_'])
-    assert found['amazon_lp_manual_'] == [f'amazon_lp_manual_{i}' for i in range(1, 9)]   # not amazon_lp_manual
-    assert found['amazon_lp_rand4_d'] == [f'amazon_lp_rand4_d{i}' for i in range(1, 6)]
-    assert found['amazon_lp_nothing_'] == []
+    # every Fleet v3 set pasted into arch.py is trained, and nothing else under that name
+    assert sorted(env['LMSPS'].split()) == sorted(k for k in archs if k.startswith('amazon_lp_v3_'))
 
 
 if __name__ == '__main__':
