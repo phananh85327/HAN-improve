@@ -64,6 +64,10 @@ A run is one model trained on one meta-path set with one seed.
   patience 10) are a fair choice for your hardware, and the thesis just needs to state them. The
   paper's own settings make HAN's attention collapse onto one path on this data (H3), so the
   `--paper-config` rows are dropped. `--paper-walks` (about 60 GPU hours) is dropped too.
+  `run_all.bat` writes every model's settings out in full (`HAN_REC`, `GAT_REC`, `M2V_FAST`;
+  added 2026-10-29). Parsed by the scripts themselves, they equal your earlier runs on your PC,
+  except GAT's longer budget (150 epochs and patience 10, against 50 and 5), which it needs
+  now that it cannot learn from its own target edges.
 
 **Cost:** about 20-25 GPU hours in total, judging by your old logs scaled to the smaller rebuilt
 data:

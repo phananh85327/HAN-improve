@@ -78,10 +78,17 @@ REM the Fleet v3 sets (LMSPS review part 4): per size, the first two averaged on
 REM the vote's consensus
 set LMSPS=amazon_lp_v3_f4_a1 amazon_lp_v3_f4_a2 amazon_lp_v3_f4_c amazon_lp_v3_f6_a1 amazon_lp_v3_f6_a2 amazon_lp_v3_f6_c
 
+REM ---- the model settings: your configuration of record, sized for one 12 GB card (RTX 4070
+REM SUPER) and the same as your earlier runs on that PC -- NOT the paper's Sec. 5.3 settings
+REM (64-d, dropout 0.6, lr 0.005, patience 100). Written out in full so the runs do not depend
+REM on the scripts' defaults. --vram-fraction 0.9 leaves headroom for the Windows display
+REM driver; HAN and GAT keep gradient checkpointing on (the default). The rebuilt data's
+REM graphs are about half the size of the old runs' (largest HAN set 9.3M edges, against
+REM 19.4M that fitted before), so these fit with room to spare; "smoke" checks it first.
 set COMMON=--dataset AMAZON --split-seed %SPLIT%
-set HAN_REC=%COMMON% --graph-dir %GDIR% --stage 150 --patience 10 --beta-warmup 15
-set M2V_FAST=%COMMON% --epochs 10 --evals-per-epoch 4 --patience 6
-set GAT_REC=%COMMON% --stage 150 --patience 10
+set HAN_REC=%COMMON% --graph-dir %GDIR% --topk 20 --hidden 512 --num-heads 8 --feat-drop 0.2 --attn-drop 0.2 --lr 0.001 --weight-decay 0 --user-tower embedding --batch-size 100000 --vram-fraction 0.9 --stage 150 --patience 10 --min-delta 0.0005 --beta-warmup 15
+set M2V_FAST=%COMMON% --dim 512 --walks-per-node 5 --walk-length 20 --window 3 --negatives 5 --lr 0.01 --batch-walks 1024 --pair-chunk 50000 --vram-fraction 0.9 --epochs 10 --evals-per-epoch 4 --patience 6 --min-delta 0.0005
+set GAT_REC=%COMMON% --in-dim 256 --hidden 512 --num-heads 8 --layers 2 --feat-drop 0.2 --attn-drop 0.2 --lr 0.001 --weight-decay 0 --batch-size 100000 --vram-fraction 0.9 --stage 150 --patience 10 --min-delta 0.0005
 
 REM ---- dispatch ------------------------------------------------------------------------
 if /i "%STAGE%"=="all" goto all
