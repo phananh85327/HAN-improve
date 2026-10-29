@@ -74,7 +74,9 @@ How to read the results table:
     the second simplest one-SE set, and the set most runs agreed on.
   - The LMSPS sets' category paths (`PCCP`, `PCCPP`, `PPCCPP`, ...) reach no product for about
     80% of products (books and music; LMSPS review part 4). In HAN those products see only
-    themselves in that channel, so read a category path's weight as "DVDs and videos".
+    themselves in that channel. A path's weight averages a score over all products (the
+    paper's eq. 7), so a category path's weight mostly measures that self-only channel, not
+    the category neighbours of DVDs and videos: don't read it as the value of the path.
   - The random draws ask whether the search picks better than chance from its own 36
     candidates. Report their spread, never a single draw.
   - Popularity is the floor every model must clear.
@@ -146,8 +148,9 @@ GAT and HAN. Pass `--user-tower feats` for the inductive hash-feature tower.
 The HAN model itself (`model_han.py`) follows the paper: per-path multi-head
 node-level attention (eq. 1-5), semantic-level attention with node-averaged
 scores and a 128-d attention vector (eq. 7-9). The task adaptation and the
-pipeline around it differ; keep these in mind when reading results. A full
-review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
+pipeline around it differ; keep these in mind when reading results. The check
+against the paper's text is in `review/h3_han_model_and_training.md` (an earlier
+review is in the local notes `chat/2026-10-16_han-paper-fidelity-review.md`).
 
 - **Loss / head.** Cross-entropy classification (eq. 10) is replaced by BPR over
   dot-product scores of (user, product) pairs; the paper explicitly allows a
@@ -172,6 +175,10 @@ review is in `chat/2026-10-16_han-paper-fidelity-review.md`.
   hidden 512 (8 heads x 64), patience 20 with `--min-delta 5e-4`. The paper
   (Sec. 5.3) uses lr 5e-3, L2 1e-3, dropout 0.6, 64-d embeddings, patience 100:
   `--paper-config` applies those.
+- **Baselines.** The paper runs GAT and metapath2vec on each single meta-path and
+  reports the best one (Sec. 5.2). Here GAT runs on the union of all relations, with
+  no meta-paths (`train_gat.py`), and metapath2vec walks all the paths of a set
+  together; the paper's "best single path" rows are not run.
 - **Product features.** In the rebuilt data (LMSPS review part 1) a product's
   `node.dat` features are 260-d: a 256-d LSA projection of the title plus 4 product
   group bits. The data before the rebuild had 504-d binary, very sparse features.

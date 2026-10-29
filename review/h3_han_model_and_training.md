@@ -120,3 +120,32 @@ Committed on `claude/han-review`:
   weights.
 - `train_han.py`: `--independent-init`.
 - `tests/test_han_model.py`: new.
+
+## Against the paper's text (added 2026-10-29)
+
+H3 was first checked against the equations as the code and the README quote them. With the
+paper itself (Wang et al., WWW 2019; your `2.pdf`), every item was checked again:
+
+| Paper | This repo | Verdict |
+|---|---|---|
+| Def. 3.3: a node's meta-path neighbours include itself | Self-loops are added to every graph (`train_han.py`) | Same |
+| Eq. 1: type-specific projection before attention | Each path's GAT projects the product features (`fc`, no bias); only products are encoded, so one type | Same |
+| Eq. 2-3: masked attention over N_i (self included), LeakyReLU, softmax over neighbours | `GATLayer`: LeakyReLU(0.2), softmax over each node's incoming edges | Same (the halves of the attention vector are labelled the other way round; same function) |
+| Eq. 4-5: ELU after aggregation, K heads concatenated | ELU, heads concatenated | Same |
+| Eq. 7: W, b and q shared by all paths, scores averaged over all nodes, q 128-d | `SemanticAttention`: Linear(hidden, 128), tanh, Linear(128, 1, no bias), mean over products | Same |
+| Eq. 8-9: softmax over paths, weighted sum | Same (plus the off-by-default `--semantic-tau`, and `--beta-warmup`) | Same; extras documented |
+| Eq. 10: cross-entropy over labelled nodes | BPR over (user, product) pairs | Deviation, documented (the paper allows a task-specific loss) |
+| Sec. 3: neighbours from the full adjacency product | Top 20 per hop, symmetrised | Deviation, documented (H2) |
+| Sec. 5.3: Adam, lr 0.005, L2 0.001, q 128, K 8, dropout 0.6, patience 100 on validation loss, 64-d | `--paper-config`: exactly these (dropout on features and attention, as in the reference code) | Same |
+| Sec. 5.2: GAT and metapath2vec run on each single meta-path, best one reported | GAT on the union of all relations; metapath2vec walks a set's paths together | Different baselines, both valid; now stated in the README. The "best single path" rows are not run |
+| Sec. 5.6 / Fig. 5: a path's weight β goes with how well that path does alone | Not tested by the protocol | Optional: single-path HAN runs (below) |
+
+**No bug or must-fix in the model.** Two things the paper's text adds:
+- **Reading β with near-empty paths.** Eq. 7 averages each path's score over all products. For
+  the LMSPS sets' category paths, about 80% of products have only themselves in that channel,
+  so the weight mostly measures a self-only channel. The README sentence written on 2026-10-29
+  said to read such a weight as "DVDs and videos"; that was wrong and is corrected.
+- **Optional, not in the protocol:** HAN on one path at a time is the paper's GAT baseline
+  (Sec. 5.2) and the test of its Fig. 5 claim. For the 14 distinct paths of `a1`, `_c`, M5
+  and M6 it would take about 2-3 GPU hours, and it would also give LMSPS part 4b a path-level
+  comparison with the search.
