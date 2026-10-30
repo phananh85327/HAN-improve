@@ -39,7 +39,7 @@ real LMSPS output.
 | H7 docs | Done; updated here |
 | **H8 results** | Done after the runs: `h8_results.md` (2026-10-30) |
 | **LMSPS part 4b** (does HAN rank the sets as the search does?) | Done: LMSPS `review/part4b_search_vs_han.md` (2026-10-30) |
-| **LMSPS part 10** (the synthesis) | Open |
+| **LMSPS part 10** (the synthesis) | Done: LMSPS `review/part10_synthesis.md` (2026-10-30) |
 
 ## What changed
 
