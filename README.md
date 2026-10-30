@@ -86,8 +86,13 @@ How to read the results table:
   sets on the same validation edges, so their validation numbers lean in their favour.
 - **Read the `data` and `variant` columns:** the table keeps different data versions and different
   settings apart, and warns when it mixes data versions.
+- **Every run should end by early stopping.** `summarize` warns about a run that used its whole
+  epoch cap: rerun it with a larger cap (GAT seed 2 reached 150 and was rerun with `--stage 300`;
+  it stopped at 157). The cap is not a setting, so such a rerun stays in its model's row; move
+  the capped result out of `output/AMAZON/v3`, or the table warns that a seed is counted twice.
 - **Full ranking:** the full-ranking columns rank against every product instead of 99 random ones.
   Sampled numbers flatter popular items (popularity: 0.42 sampled, 0.009 full).
+- **The rerun's results** and how to report them: `review/h8_results.md`.
 
 Earlier results (`logs/Final 1-5`, `output/AMAZON/Han_*`, `M2v_*`, `gat_s1.txt`) were trained on
 the data before the rebuild and with the old GAT and HAN initialisation. They are not comparable

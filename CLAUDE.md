@@ -76,7 +76,8 @@
   `summarize_results.py` keeps data versions and settings (`variant`) apart.
 - HAN starts every path's GAT from the same weights (`--independent-init` = old behaviour), so
   results and path weights do not depend on the order of the paths (review H3).
-- Review notes are in `review/h1..h7_*.md`; `python -m pytest tests` runs the tests.
+- Review notes are in `review/h1..h8_*.md` (H8: the results of the rerun, with
+  `review/evidence/h8_results.py`); `python -m pytest tests` runs the tests.
 - Duplicate editions: `link_data.product_twin_groups` / `twin_in_train`,
   `han_utils.report_twin_breakdown`, `check_edition_twins.py`. On the data before the
   rebuild the "no twin in train" row was the recommendation-quality number; the rebuilt

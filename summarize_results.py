@@ -21,6 +21,9 @@ Model selection rule for the thesis: pick the best arch per group by VAL BPR
 the same (model, arch, preset, variant, split, data) over run seeds as mean +/- std;
 'variant' lists the settings that differ between runs of one model (e.g.
 beta_warmup=0 vs 15), so different settings are never averaged as if they were seeds.
+The epoch cap (--stage, metapath2vec --epochs) is not a setting: a run that used its
+whole cap is listed under "runs with warnings", and a group holding two runs of one
+seed prints a warning.
 
     python summarize_results.py                          # output/AMAZON/*.pt
     python summarize_results.py output/AMAZON/han_*.pt --group --csv logs/results.csv
@@ -60,6 +63,11 @@ def row_from_blob(path, blob):
     notwin = tw.get('no twin in train', {})
     bv = blob.get('best_val_loss')
     be = blob.get('best_epoch')
+    warnings = list(blob.get('warnings') or [])
+    cap = cfg.get('stage', cfg.get('epochs'))
+    if cap and blob.get('epochs_run') == cap:
+        warnings.append(f'ran all {cap} epochs of its cap without stopping early: rerun it with '
+                        'a larger cap (--stage; metapath2vec: --epochs)')
     return {
         'file': os.path.basename(path),
         'model': blob.get('model', '?'),
@@ -78,14 +86,16 @@ def row_from_blob(path, blob):
         'ndcg10_notwin': notwin.get('NDCG@10'),
         'n_twin': twin.get('n_edges'),
         'n_notwin': notwin.get('n_edges'),
-        'warnings': '; '.join(blob.get('warnings') or []),
+        'warnings': '; '.join(warnings),
     }
 
 
-# config entries that do not change what a run computes, or that the table shows elsewhere
+# config entries that do not change what a run computes, or that the table shows elsewhere.
+# stage / epochs only cap the training length: a run that stops early never reaches its cap,
+# and a run that does reach it is warned about (row_from_blob) instead of getting its own row
 NOT_A_VARIANT = {'seed', 'save_emb', 'gpu', 'cpu', 'vram_fraction', 'root', 'graph_dir', 'dataset',
                  'arch', 'paths', 'eval_only', 'no_grad_ckpt', 'allow_legacy_data', 'split_seed',
-                 'paper_config', 'paper_walks'}
+                 'paper_config', 'paper_walks', 'stage', 'epochs'}
 
 
 def add_variants(rows, cfgs):
@@ -241,7 +251,12 @@ def main():
 
     if args.group:
         print('\nGrouped over run seeds (mean +/- std where > 1 run):\n')
-        print_markdown(grouped(rows), gcols)
+        groups = grouped(rows)
+        print_markdown(groups, gcols)
+        for g in groups:
+            if len(set(g['seeds'].split(','))) < g['n_runs']:
+                print(f"WARNING: {g['model']} {g['arch']} (variant {g['variant']}) averages two runs "
+                      f"of one seed ({g['seeds']}): move the stale run out of the folder")
 
     if args.csv:
         os.makedirs(os.path.dirname(args.csv) or '.', exist_ok=True)

@@ -37,9 +37,9 @@ real LMSPS output.
 | H5 metrics and reporting | Done |
 | H6 run protocol | Done; updated here (six LMSPS sets, smoke key) |
 | H7 docs | Done; updated here |
-| **H8 results** | After the runs |
-| **LMSPS part 4b** (does HAN rank the sets as the search does?) | After the runs |
-| **LMSPS part 10** (the synthesis) | After the runs |
+| **H8 results** | Done after the runs: `h8_results.md` (2026-10-30) |
+| **LMSPS part 4b** (does HAN rank the sets as the search does?) | Done: LMSPS `review/part4b_search_vs_han.md` (2026-10-30) |
+| **LMSPS part 10** (the synthesis) | Open |
 
 ## What changed
 

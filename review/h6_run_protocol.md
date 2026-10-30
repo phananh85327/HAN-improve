@@ -139,6 +139,7 @@ data:
 | P8 | Logs could not be pushed | `logs/` is in `.gitignore` | Logs under `output\AMAZON\v3`; `push` stage. The rule `logs/` matched every folder named `logs`, so it ignored `output/AMAZON/v3/logs` too; anchored to `/logs/` on 2026-10-29 |
 | P9 | Line endings | A batch file checked out with LF endings can lose its labels in cmd | `.gitattributes`: `*.bat` always CRLF |
 | P10 | Paper-setting rows | HAN collapses without warm-up (H3); `--paper-walks` costs about 60 h | Dropped |
+| P11 | A run that reaches its epoch cap | GAT seed 2 ran all 150 epochs (best 147) and was rerun with `--stage 300`; it stopped at 157. `summarize` counted `stage` as a setting: the rerun got a row of its own, and the capped run, still in the folder, was averaged as seed 2 | **Must fix (2026-10-30):** the cap is not a setting; `summarize` warns about a capped run and about a seed counted twice. Every other run stopped early, far below its cap |
 
 ## How it was checked
 

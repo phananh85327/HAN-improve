@@ -160,10 +160,10 @@ def test_builder_stops_on_legacy_data():
         assert code != 0 and 'meta.json' in out, out
 
 
-def _blob(path, data_hash, n_p=N_P, n_u=N_U, seed=1, hit=0.5, **config):
+def _blob(path, data_hash, n_p=N_P, n_u=N_U, seed=1, hit=0.5, epochs_run=None, **config):
     torch.save({'model': 'HAN', 'dataset': 'AMAZON', 'target_relation': 'U,P', 'paths': ['PUP'],
                 'split_seed': 1, 'P_emb': torch.randn(n_p, 4), 'U_emb': torch.randn(n_u, 4),
-                'metrics': {'Hit@10': hit}, 'best_val_loss': 0.3,
+                'metrics': {'Hit@10': hit}, 'best_val_loss': 0.3, 'epochs_run': epochs_run,
                 'data': None if data_hash is None else {'train_edges_hash': data_hash},
                 'config': {'arch': 'amazon_lp_x', 'seed': seed, 'beta_warmup': 15, **config}}, path)
 
@@ -194,6 +194,25 @@ def test_summary_keeps_settings_apart():
         assert len(rows) == 2, rows
         assert any('beta_warmup=0' in l and '| 1 | 1 |' in l for l in rows), rows
         assert any('beta_warmup=15' in l and '| 3 | 1,2,3 |' in l for l in rows), rows
+
+
+def test_summary_epoch_cap_is_not_a_setting():
+    """Runs that stopped early under different caps are one setting (GAT seed 2 was rerun with
+    --stage 300 after reaching 150); a run that used its whole cap and a seed counted twice
+    are both flagged."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for seed, stage, ran in ((1, 150, 131), (2, 300, 158), (3, 150, 142)):
+            _blob(os.path.join(tmp, f'gat_s{seed}.pt'), 'abcd', seed=seed, stage=stage, epochs_run=ran)
+        code, out = run('summarize_results.py', os.path.join(tmp, '*.pt'), '--group')
+        assert code == 0, out
+        rows = [l for l in out.split('Grouped over run seeds')[1].splitlines() if l.startswith('| HAN')]
+        assert len(rows) == 1 and '| 3 |' in rows[0] and 'stage=' not in out, rows
+        assert 'without stopping early' not in out and 'WARNING' not in out, out
+        _blob(os.path.join(tmp, 'gat_s2_capped.pt'), 'abcd', seed=2, stage=150, epochs_run=150)
+        code, out = run('summarize_results.py', os.path.join(tmp, '*.pt'), '--group')
+        assert code == 0, out
+        assert 'gat_s2_capped.pt: ran all 150 epochs of its cap without stopping early' in out, out
+        assert 'averages two runs of one seed' in out, out
 
 
 def test_eval_emb_skips_results_from_other_data():
