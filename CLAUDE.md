@@ -55,7 +55,8 @@
   skipped; the user also starts single runs by hand. Details and the reading rules are in README
   "Run flow" and `review/h6_run_protocol.md`. Winner selection is by **validation BPR**.
 - Naming: results `output/AMAZON/v3/<model>_<archkey>_s<seed>.pt`, logs
-  `output/AMAZON/v3/logs/<same>.txt` (`logs/` is git-ignored). Never use `--save-emb auto` in
+  `output/AMAZON/v3/logs/<same>.txt` (committed by `run_all.bat push`; only the top-level
+  `logs/` is git-ignored). Never use `--save-emb auto` in
   batch runs. Everything trained before the rebuild (`logs/Final 1-5`, `output/AMAZON/Han_*`,
   `M2v_*`, old `.pt` files) is legacy.
 - Baselines: GAT = 2-layer union-graph GAT without output ELU, hyperparameters matched to the
