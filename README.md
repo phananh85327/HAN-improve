@@ -82,6 +82,8 @@ How to read the results table:
   - Popularity is the floor every model must clear.
   - GAT is the type-blind GNN; metapath2vec the shallow meta-path baseline.
 - **Choose by validation BPR,** never by a test number, if you pick a "best" set among several.
+- **Compare LMSPS with manual and random sets on test numbers.** The search picked its
+  sets on the same validation edges, so their validation numbers lean in their favour.
 - **Read the `data` and `variant` columns:** the table keeps different data versions and different
   settings apart, and warns when it mixes data versions.
 - **Full ranking:** the full-ranking columns rank against every product instead of 99 random ones.
