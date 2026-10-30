@@ -1,12 +1,11 @@
 Command: python summarize_results.py output\AMAZON\v3\*.pt --group --full-ranking --csv output\AMAZON\v3\results.csv
-Start Time: 2026-10-30_11:20:56
+Start Time: 2026-10-30_13:45:33
 ------------------------------------------------------------
-69 runs; data (split, training-edge fingerprint): split 1 c5f7bccbf61c1b0f x69
+68 runs; data (split, training-edge fingerprint): split 1 c5f7bccbf61c1b0f x68
 
 | model | arch | preset | variant | split | data | seed | best_epoch | val_bpr | hit10 | ndcg10 | hit10_twin | hit10_notwin | ndcg10_notwin | hit10_full | ndcg10_full | recall20_full | file |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | GAT | - | - | stage=300 | 1 | c5f7bccbf61c1b0f | 2 | 157 | 0.1746 | 0.7923 | 0.5586 | 0.8250 | 0.7922 | 0.5586 | 0.0511 | 0.0265 | 0.0960 | gat_union_s2.pt |
-| GAT | - | - | stage=150 | 1 | c5f7bccbf61c1b0f | 2 | 147 | 0.1754 | 0.7919 | 0.5573 | 0.8500 | 0.7918 | 0.5572 | 0.0496 | 0.0255 | 0.0922 | gat_union_s2_reach_limit.pt |
 | GAT | - | - | stage=150 | 1 | c5f7bccbf61c1b0f | 3 | 141 | 0.1791 | 0.7854 | 0.5522 | 0.8000 | 0.7854 | 0.5522 | 0.0496 | 0.0256 | 0.0926 | gat_union_s3.pt |
 | GAT | - | - | stage=150 | 1 | c5f7bccbf61c1b0f | 1 | 130 | 0.1805 | 0.7846 | 0.5477 | 0.8250 | 0.7845 | 0.5477 | 0.0420 | 0.0215 | 0.0804 | gat_union_s1.pt |
 | HAN | amazon_lp_rand6_d2 | - | - | 1 | c5f7bccbf61c1b0f | 1 | 98 | 0.2580 | 0.7063 | 0.4675 | 0.9000 | 0.7062 | 0.4675 | 0.0280 | 0.0142 | 0.0501 | han_amazon_lp_rand6_d2_s1.pt |
@@ -82,7 +81,7 @@ Grouped over run seeds (mean +/- std where > 1 run):
 
 | model | arch | preset | variant | split | data | n_runs | seeds | val_bpr | hit10 | ndcg10 | hit10_twin | hit10_notwin | ndcg10_notwin | hit10_full | ndcg10_full | recall20_full |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| GAT | - | - | stage=150 | 1 | c5f7bccbf61c1b0f | 3 | 2,3,1 | 0.1783 +/- 0.0026 | 0.7873 +/- 0.0040 | 0.5524 +/- 0.0048 | 0.8250 +/- 0.0250 | 0.7873 +/- 0.0040 | 0.5524 +/- 0.0048 | 0.0471 +/- 0.0044 | 0.0242 +/- 0.0023 | 0.0884 +/- 0.0069 |
+| GAT | - | - | stage=150 | 1 | c5f7bccbf61c1b0f | 2 | 3,1 | 0.1798 +/- 0.0010 | 0.7850 +/- 0.0006 | 0.5500 +/- 0.0031 | 0.8125 +/- 0.0177 | 0.7850 +/- 0.0006 | 0.5499 +/- 0.0032 | 0.0458 +/- 0.0054 | 0.0236 +/- 0.0029 | 0.0865 +/- 0.0086 |
 | GAT | - | - | stage=300 | 1 | c5f7bccbf61c1b0f | 1 | 2 | 0.1746 | 0.7923 | 0.5586 | 0.8250 | 0.7922 | 0.5586 | 0.0511 | 0.0265 | 0.0960 |
 | HAN | amazon_lp_manual_1 | - | - | 1 | c5f7bccbf61c1b0f | 1 | 1 | 0.3072 | 0.6352 | 0.3984 | 0.7000 | 0.6351 | 0.3984 | 0.0169 | 0.0082 | 0.0305 |
 | HAN | amazon_lp_manual_2 | - | - | 1 | c5f7bccbf61c1b0f | 1 | 1 | 0.2957 | 0.6497 | 0.4129 | 0.8000 | 0.6496 | 0.4128 | 0.0192 | 0.0093 | 0.0337 |
@@ -136,4 +135,4 @@ Grouped over run seeds (mean +/- std where > 1 run):
 
 wrote output\AMAZON\v3\results.csv
 ------------------------------------------------------------
-End Time: 2026-10-30_11:23:15  exit code 0
+End Time: 2026-10-30_13:47:47  exit code 0
