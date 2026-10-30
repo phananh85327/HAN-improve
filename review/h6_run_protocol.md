@@ -69,15 +69,16 @@ A run is one model trained on one meta-path set with one seed.
   except GAT's longer budget (150 epochs and patience 10, against 50 and 5), which it needs
   now that it cannot learn from its own target edges.
 
-**Cost:** about 20-25 GPU hours in total, judging by your old logs scaled to the smaller rebuilt
-data:
+**Cost:** estimated at about 20-25 GPU hours from your old logs; **measured on the rebuilt data
+(2026-10-30): about 9 GPU hours.** Each epoch does about a tenth of the old work (fewer training
+edges, graphs half the size; H8):
 
-| Runs | Count | Time per run | Total |
-|---|---|---|---|
-| HAN, seed 1 | 24 (6 LMSPS, 8 manual, 10 random) | about 20-45 min | about 12 h |
-| HAN, seeds 2-3, main comparison | 8 | about 30 min | about 4 h |
-| metapath2vec | about 32 | 5-10 min | about 4 h |
-| GAT | 3 | about 1 h (it trains longer now that it can't use the target edge) | about 3 h |
+| Runs | Count | Estimated per run | Measured per run (median, range) | Measured total |
+|---|---|---|---|---|
+| HAN, seeds 1-3 | 32 (24 sets at seed 1, 8 for seeds 2-3) | 20-45 min | 9.0 min (5.6-13.7) | 5.0 h |
+| metapath2vec, seeds 1-3 | 32 | 5-10 min | 5.2 min (2.4-10.0) | 2.9 h |
+| GAT, seeds 1-3 | 3 | about 1 h | 12.8 min (11.4-14.1) | 0.6 h |
+| Graphs, audit, popularity, table | | | | about 15 min |
 
 ## `run_all.bat`
 

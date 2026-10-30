@@ -8,8 +8,10 @@
 4. the 24 sets at seed 1: order within each size, validation against test
 5. HAN's path weights (beta): paths it drops, weight per path relative to an equal share
 6. Hit@10 by the user's number of training purchases, headline sets
+7. what the runs cost: minutes per run and in total, from the Start/End times in the logs
 """
 import csv
+import datetime
 import glob
 import os
 import re
@@ -42,6 +44,9 @@ def parse(path):
     m = re.search(r'Test ranking metrics:(.*?)By user', txt, re.S)
     r['hit10'] = float(re.search(r'Hit@10: ([\d.]+)', m.group(1)).group(1))
     r['exit'] = int((re.search(r'exit code (\d+)', txt) or [None, -1])[1])
+    ts = [datetime.datetime.strptime(x, '%Y-%m-%d_%H:%M:%S')
+          for x in re.findall(r'(?:Start|End) Time: (\d{4}-\d\d-\d\d_\d\d:\d\d:\d\d)', txt)]
+    r['minutes'] = (ts[1] - ts[0]).total_seconds() / 60 if len(ts) >= 2 else None
     r['fp'] = (re.search(r'training-edge fingerprint (\w+)', txt) or [None, '?'])[1]
     # validation gain over the last 10 epochs (HAN, GAT): best-so-far, warm-up epochs excluded
     if model != 'metapath2vec':
@@ -142,3 +147,8 @@ for model in ('HAN', 'metapath2vec'):
         rs = [r for r in runs if r['model'] == model and r['arch'] == k]
         keys = [d for d in rs[0]['deg'] if d != 'deg=0']
         print(f'   {model:12s} {k[10:]:9s} ' + '  '.join(f'{d}: {st.mean(r["deg"][d] for r in rs):.3f}' for d in keys))
+
+print('7. what the runs cost (minutes per run from the logs)')
+for model in ('HAN', 'metapath2vec', 'GAT'):
+    m = [r['minutes'] for r in runs if r['model'] == model and r['minutes'] is not None]
+    print(f'   {model:12s} {len(m)} runs: median {st.median(m):.1f} min ({min(m):.1f}-{max(m):.1f}), total {sum(m) / 60:.1f} h')

@@ -16,8 +16,8 @@ REM   2. point SEARCH_RECORD below at any one Fleet v3 search record
 REM The six Fleet v3 sets are already in arch.py (LMSPS review part 4): per size, the first
 REM two averaged one-SE sets and the vote's consensus.
 REM
-REM Stages ("all" runs them in this order; about 20 GPU hours in total, see
-REM review\h6_run_protocol.md):
+REM Stages ("all" runs them in this order; about 9 GPU hours in total, measured on the
+REM rebuilt data; see review\h6_run_protocol.md):
 REM   check       check_handover.py: data\AMAZON must be the data the search ran on
 REM   build       the meta-path graphs of every set (graphs from other data are rebuilt)
 REM   audit       check_graph_bias.py and check_edition_twins.py

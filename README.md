@@ -7,8 +7,8 @@ list of path strings that start and end at the target type, e.g. "PUP,PPPP".
 The exact requirements a discovery repo must satisfy -- schema, target-type,
 leakage and fairness rules -- are in [METAPATH_CONTRACT.md](METAPATH_CONTRACT.md).
 
-Dependencies: torch (+CUDA), numpy, scipy, tqdm. No dgl / torch_sparse (dgl only for
-one optional test).
+Dependencies: torch (+CUDA), numpy, scipy, tqdm, scikit-learn (`requirements.txt`). No dgl /
+torch_sparse (dgl only for one optional test).
 
 ## Inputs
 
@@ -64,8 +64,8 @@ First time:
 | `push` | commit the logs and the table (results `.pt` files stay local) and push |
 
 In all: 24 sets (6 LMSPS, 8 manual, 10 random) for HAN and metapath2vec at seed 1, the 4
-headline sets at seeds 2 and 3, GAT at seeds 1-3 and popularity; about 20-25 GPU hours on a
-12 GB card.
+headline sets at seeds 2 and 3, GAT at seeds 1-3 and popularity: about 9 GPU hours on a 12 GB
+card (measured 2026-10-30: HAN 5.0 h for 32 runs, metapath2vec 2.9 h, GAT 0.6 h, graphs 11 min).
 
 How to read the results table:
 - **Main comparison:** LMSPS against manual at the same number of paths, `amazon_lp_v3_f4_a1`
@@ -147,9 +147,10 @@ Each trainer (and eval_emb.py) reports:
 - with `--full-ranking` (`eval_emb.py`, `summarize_results.py`): the same test edges ranked
   against every product the user has no observed edge to (`han_utils.evaluate_full_ranking`)
 
-All trainers default to `--user-tower embedding`: the user side is a free per-user trained
-vector. GAT builds its users from their items instead, which is part of any difference between
-GAT and HAN. Pass `--user-tower feats` for the inductive hash-feature tower.
+`train_han.py` defaults to `--user-tower embedding`: the user side is a free per-user trained
+vector, like metapath2vec's walk embeddings. GAT builds its users from their items instead, which
+is part of any difference between GAT and HAN. Pass `--user-tower feats` for the inductive
+hash-feature tower.
 
 ## Deviations from the paper (Wang et al., WWW-2019)
 
@@ -167,7 +168,10 @@ review is in the local notes `chat/2026-10-16_han-paper-fidelity-review.md`).
   neighbor (adjacency product). `build_metapath_graphs.py` keeps the top-20 per
   row by walk count after every hop and symmetrizes. Ties are broken by a seeded
   random key (`--tie-break random`); the previous id tie-break biased the graphs
-  toward low product ids (see `check_graph_bias.py`).
+  toward low product ids (see `check_graph_bias.py`). A product's walk back to
+  itself counts too: it takes one of the 20 slots in nearly every row of `PUP` and
+  `PUPUP` (84% of `PCP` rows) and is removed afterwards, so those graphs keep about 19
+  other neighbours per row before symmetrizing (`review/recheck_full_repo.md`).
 - **Users bypass HAN.** Only products are encoded by HAN; users are a free
   embedding table (or a linear tower over hash features). The paper would give
   users their own type-specific projection and meta-paths.
@@ -186,7 +190,9 @@ review is in the local notes `chat/2026-10-16_han-paper-fidelity-review.md`).
 - **Baselines.** The paper runs GAT and metapath2vec on each single meta-path and
   reports the best one (Sec. 5.2). Here GAT runs on the union of all relations, with
   no meta-paths (`train_gat.py`), and metapath2vec walks all the paths of a set
-  together; the paper's "best single path" rows are not run.
+  together; the paper's "best single path" rows are not run. metapath2vec draws its
+  negatives uniformly within the context node's type; the original samples them in
+  proportion to frequency (unigram^0.75), so popular nodes are rarer negatives here.
 - **Product features.** In the rebuilt data (LMSPS review part 1) a product's
   `node.dat` features are 260-d: a 256-d LSA projection of the title plus 4 product
   group bits. The data before the rebuild had 504-d binary, very sparse features.
@@ -213,7 +219,7 @@ review is in the local notes `chat/2026-10-16_han-paper-fidelity-review.md`).
 | eval_emb.py | recompute all test metrics from saved embeddings, no retraining; skips results from other data; `--full-ranking` |
 | summarize_results.py | one table over all saved blobs (data version, settings variant, val BPR, Hit/NDCG, twin / non-twin), mean +/- std over seeds; `--full-ranking` |
 | tests/ | `python -m pytest tests` (about a minute on a CPU) |
-| review/ | the HAN repo review (parts H1-H7; H8, the results, follows the rerun) |
+| review/ | the HAN repo review: parts H1-H8, the wrap-up before the runs, the full re-check after them (`recheck_full_repo.md`), and the scripts behind them (`review/evidence/`) |
 | run_all.bat | the complete experiment flow by stage (see "Run flow") |
 | recommend.py | ASIN -> similar products; user -> top-k products |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
