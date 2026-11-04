@@ -1,5 +1,20 @@
 # Manual meta-path sets for the AMAZON user–product graph
 
+> **Superseded (2026-11-04).** This is the first draft (2026-10-26). The revised version is the
+> LMSPS repo's `review/manual_metapath_sets.md`; use that one. The sets M1-M8 are the same in
+> both, and the same as `arch.py` (`amazon_lp_manual_1..8`), so no run is affected. Outdated here:
+> - the reason for leaving out `PCCP`: it assumes self-loops on P-P and C-C, so that `PCCP` adds
+>   one neighbour to `PCP`. Without self-loops, as HAN and metapath2vec build paths, `PCCP` is
+>   nearly empty (81% of products have no neighbour on the full data)
+> - the "near-complete" argument against long paths: it measures unpruned reach, but HAN's graph
+>   builder keeps 20 neighbours per hop (`PUPUP`: mean degree about 36 on the full data)
+> - M8 marked optional "only with pruning": the builder prunes, and M8 was run
+> - the density script in section 5: it adds self-loops and uses all user-product edges
+>
+> For the full-data numbers see `review/h2_graph_construction.md` and
+> `output/AMAZON/v3/logs/audit_graph_bias.txt`; for the results, `review/h8_results.md`. The text
+> below is kept unchanged, for the record.
+
 Hand-picked meta-path sets to compare against the sets LMSPS finds automatically, when training
 HAN (or any meta-path model) for **user → product link prediction**.
 
