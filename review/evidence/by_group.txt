@@ -1,0 +1,252 @@
+data data\AMAZON, split 1: test edges by product group Book 41.0%, DVD 13.9%, Music 33.8%, Video 11.3%; P-C-C-P reaches 18.9% of products, 27.5% of test edges
+
+gat_union_s1.pt: Hit@10 0.7846
+  by product group: Book 0.7425  DVD 0.8390  Music 0.8057  Video 0.8073
+  P-C-C-P reaches the product: 0.8261   does not: 0.7688
+  full-ranking top 10 of 5000 test users: mean training degree 152.0 (all products 13.4), from the top 1% most-bought 51.2%, distinct products 5268
+
+han_amazon_lp_manual_1_s1.pt: Hit@10 0.6352
+  by product group: Book 0.6043  DVD 0.7214  Music 0.6224  Video 0.6790
+  P-C-C-P reaches the product: 0.6924   does not: 0.6135
+  full-ranking top 10 of 5000 test users: mean training degree 61.2 (all products 13.4), from the top 1% most-bought 19.8%, distinct products 10722
+
+han_amazon_lp_manual_2_s1.pt: Hit@10 0.6497
+  by product group: Book 0.6197  DVD 0.7284  Music 0.6418  Video 0.6853
+  P-C-C-P reaches the product: 0.7027   does not: 0.6296
+  full-ranking top 10 of 5000 test users: mean training degree 68.3 (all products 13.4), from the top 1% most-bought 22.7%, distinct products 10544
+
+han_amazon_lp_manual_3_s1.pt: Hit@10 0.6478
+  by product group: Book 0.6130  DVD 0.7265  Music 0.6442  Video 0.6879
+  P-C-C-P reaches the product: 0.7033   does not: 0.6268
+  full-ranking top 10 of 5000 test users: mean training degree 79.1 (all products 13.4), from the top 1% most-bought 26.3%, distinct products 9689
+
+han_amazon_lp_manual_4_s1.pt: Hit@10 0.6191
+  by product group: Book 0.5944  DVD 0.6636  Music 0.6257  Video 0.6338
+  P-C-C-P reaches the product: 0.6394   does not: 0.6114
+  full-ranking top 10 of 5000 test users: mean training degree 34.7 (all products 13.4), from the top 1% most-bought 7.5%, distinct products 11057
+
+han_amazon_lp_manual_5_s1.pt: Hit@10 0.6647
+  by product group: Book 0.6347  DVD 0.7374  Music 0.6606  Video 0.6958
+  P-C-C-P reaches the product: 0.7126   does not: 0.6465
+  full-ranking top 10 of 5000 test users: mean training degree 79.1 (all products 13.4), from the top 1% most-bought 25.6%, distinct products 9925
+
+han_amazon_lp_manual_6_s1.pt: Hit@10 0.6916
+  by product group: Book 0.6579  DVD 0.7557  Music 0.7000  Video 0.7098
+  P-C-C-P reaches the product: 0.7317   does not: 0.6764
+  full-ranking top 10 of 5000 test users: mean training degree 78.4 (all products 13.4), from the top 1% most-bought 26.6%, distinct products 10081
+
+han_amazon_lp_manual_7_s1.pt: Hit@10 0.6696
+  by product group: Book 0.6407  DVD 0.7361  Music 0.6671  Video 0.7001
+  P-C-C-P reaches the product: 0.7145   does not: 0.6526
+  full-ranking top 10 of 5000 test users: mean training degree 67.0 (all products 13.4), from the top 1% most-bought 21.3%, distinct products 10858
+
+han_amazon_lp_manual_8_s1.pt: Hit@10 0.6627
+  by product group: Book 0.6310  DVD 0.7314  Music 0.6621  Video 0.6945
+  P-C-C-P reaches the product: 0.7098   does not: 0.6448
+  full-ranking top 10 of 5000 test users: mean training degree 82.2 (all products 13.4), from the top 1% most-bought 26.6%, distinct products 9750
+
+han_amazon_lp_rand4_d1_s1.pt: Hit@10 0.6712
+  by product group: Book 0.6315  DVD 0.7314  Music 0.6852  Video 0.6992
+  P-C-C-P reaches the product: 0.7137   does not: 0.6551
+  full-ranking top 10 of 5000 test users: mean training degree 69.6 (all products 13.4), from the top 1% most-bought 21.6%, distinct products 11782
+
+han_amazon_lp_rand4_d2_s1.pt: Hit@10 0.6624
+  by product group: Book 0.6335  DVD 0.7179  Music 0.6684  Video 0.6809
+  P-C-C-P reaches the product: 0.6951   does not: 0.6500
+  full-ranking top 10 of 5000 test users: mean training degree 68.7 (all products 13.4), from the top 1% most-bought 21.6%, distinct products 11136
+
+han_amazon_lp_rand4_d3_s1.pt: Hit@10 0.6772
+  by product group: Book 0.6421  DVD 0.7280  Music 0.6968  Video 0.6833
+  P-C-C-P reaches the product: 0.7047   does not: 0.6668
+  full-ranking top 10 of 5000 test users: mean training degree 78.3 (all products 13.4), from the top 1% most-bought 24.7%, distinct products 11543
+
+han_amazon_lp_rand4_d4_s1.pt: Hit@10 0.6708
+  by product group: Book 0.6372  DVD 0.7376  Music 0.6741  Video 0.7008
+  P-C-C-P reaches the product: 0.7163   does not: 0.6536
+  full-ranking top 10 of 5000 test users: mean training degree 78.7 (all products 13.4), from the top 1% most-bought 25.5%, distinct products 10217
+
+han_amazon_lp_rand4_d5_s1.pt: Hit@10 0.6596
+  by product group: Book 0.6307  DVD 0.7171  Music 0.6651  Video 0.6776
+  P-C-C-P reaches the product: 0.6926   does not: 0.6471
+  full-ranking top 10 of 5000 test users: mean training degree 56.9 (all products 13.4), from the top 1% most-bought 16.3%, distinct products 10650
+
+han_amazon_lp_rand6_d1_s1.pt: Hit@10 0.6726
+  by product group: Book 0.6374  DVD 0.7208  Music 0.6919  Video 0.6836
+  P-C-C-P reaches the product: 0.7005   does not: 0.6620
+  full-ranking top 10 of 5000 test users: mean training degree 67.1 (all products 13.4), from the top 1% most-bought 20.4%, distinct products 11092
+
+han_amazon_lp_rand6_d2_s1.pt: Hit@10 0.7063
+  by product group: Book 0.6719  DVD 0.7555  Music 0.7243  Video 0.7168
+  P-C-C-P reaches the product: 0.7348   does not: 0.6955
+  full-ranking top 10 of 5000 test users: mean training degree 81.9 (all products 13.4), from the top 1% most-bought 27.6%, distinct products 9908
+
+han_amazon_lp_rand6_d3_s1.pt: Hit@10 0.6944
+  by product group: Book 0.6612  DVD 0.7467  Music 0.7070  Video 0.7133
+  P-C-C-P reaches the product: 0.7272   does not: 0.6820
+  full-ranking top 10 of 5000 test users: mean training degree 74.1 (all products 13.4), from the top 1% most-bought 23.8%, distinct products 11463
+
+han_amazon_lp_rand6_d4_s1.pt: Hit@10 0.6751
+  by product group: Book 0.6419  DVD 0.7361  Music 0.6818  Video 0.7006
+  P-C-C-P reaches the product: 0.7139   does not: 0.6604
+  full-ranking top 10 of 5000 test users: mean training degree 78.7 (all products 13.4), from the top 1% most-bought 26.1%, distinct products 10404
+
+han_amazon_lp_rand6_d5_s1.pt: Hit@10 0.7060
+  by product group: Book 0.6762  DVD 0.7551  Music 0.7204  Video 0.7104
+  P-C-C-P reaches the product: 0.7319   does not: 0.6961
+  full-ranking top 10 of 5000 test users: mean training degree 71.9 (all products 13.4), from the top 1% most-bought 22.6%, distinct products 10751
+
+han_amazon_lp_v3_f4_a1_s1.pt: Hit@10 0.6348
+  by product group: Book 0.5956  DVD 0.7136  Music 0.6380  Video 0.6707
+  P-C-C-P reaches the product: 0.6936   does not: 0.6125
+  full-ranking top 10 of 5000 test users: mean training degree 80.2 (all products 13.4), from the top 1% most-bought 25.1%, distinct products 10882
+
+han_amazon_lp_v3_f4_a2_s1.pt: Hit@10 0.6501
+  by product group: Book 0.6135  DVD 0.7239  Music 0.6549  Video 0.6772
+  P-C-C-P reaches the product: 0.7001   does not: 0.6311
+  full-ranking top 10 of 5000 test users: mean training degree 70.1 (all products 13.4), from the top 1% most-bought 23.1%, distinct products 11962
+
+han_amazon_lp_v3_f4_c_s1.pt: Hit@10 0.6585
+  by product group: Book 0.6172  DVD 0.7249  Music 0.6726  Video 0.6846
+  P-C-C-P reaches the product: 0.6993   does not: 0.6430
+  full-ranking top 10 of 5000 test users: mean training degree 78.3 (all products 13.4), from the top 1% most-bought 25.1%, distinct products 10502
+
+han_amazon_lp_v3_f6_a1_s1.pt: Hit@10 0.6658
+  by product group: Book 0.6277  DVD 0.7421  Music 0.6696  Video 0.6990
+  P-C-C-P reaches the product: 0.7211   does not: 0.6449
+  full-ranking top 10 of 5000 test users: mean training degree 73.9 (all products 13.4), from the top 1% most-bought 24.3%, distinct products 10752
+
+han_amazon_lp_v3_f6_a2_s1.pt: Hit@10 0.6658
+  by product group: Book 0.6276  DVD 0.7412  Music 0.6703  Video 0.6985
+  P-C-C-P reaches the product: 0.7204   does not: 0.6452
+  full-ranking top 10 of 5000 test users: mean training degree 73.0 (all products 13.4), from the top 1% most-bought 24.0%, distinct products 10674
+
+han_amazon_lp_v3_f6_c_s1.pt: Hit@10 0.6659
+  by product group: Book 0.6278  DVD 0.7411  Music 0.6705  Video 0.6982
+  P-C-C-P reaches the product: 0.7213   does not: 0.6450
+  full-ranking top 10 of 5000 test users: mean training degree 74.7 (all products 13.4), from the top 1% most-bought 25.0%, distinct products 10722
+
+m2v_amazon_lp_manual_1_s1.pt: Hit@10 0.5996
+  by product group: Book 0.6131  DVD 0.4229  Music 0.7122  Video 0.4310
+  P-C-C-P reaches the product: 0.4336   does not: 0.6625
+  full-ranking top 10 of 5000 test users: mean training degree 5.4 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 7568
+
+m2v_amazon_lp_manual_2_s1.pt: Hit@10 0.6377
+  by product group: Book 0.6382  DVD 0.4874  Music 0.7420  Video 0.5089
+  P-C-C-P reaches the product: 0.5008   does not: 0.6896
+  full-ranking top 10 of 5000 test users: mean training degree 6.3 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 10682
+
+m2v_amazon_lp_manual_3_s1.pt: Hit@10 0.6241
+  by product group: Book 0.6197  DVD 0.4705  Music 0.7329  Video 0.5042
+  P-C-C-P reaches the product: 0.4866   does not: 0.6763
+  full-ranking top 10 of 5000 test users: mean training degree 6.9 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 15583
+
+m2v_amazon_lp_manual_4_s1.pt: Hit@10 0.0945
+  by product group: Book 0.0998  DVD 0.0750  Music 0.1006  Video 0.0812
+  P-C-C-P reaches the product: 0.0794   does not: 0.1002
+  full-ranking top 10 of 5000 test users: mean training degree 11.5 (all products 13.4), from the top 1% most-bought 0.7%, distinct products 16313
+
+m2v_amazon_lp_manual_5_s1.pt: Hit@10 0.6390
+  by product group: Book 0.6471  DVD 0.4741  Music 0.7450  Video 0.4958
+  P-C-C-P reaches the product: 0.4905   does not: 0.6954
+  full-ranking top 10 of 5000 test users: mean training degree 5.9 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 10084
+
+m2v_amazon_lp_manual_6_s1.pt: Hit@10 0.6388
+  by product group: Book 0.6434  DVD 0.4756  Music 0.7472  Video 0.4990
+  P-C-C-P reaches the product: 0.4914   does not: 0.6947
+  full-ranking top 10 of 5000 test users: mean training degree 6.3 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 12689
+
+m2v_amazon_lp_manual_7_s1.pt: Hit@10 0.6332
+  by product group: Book 0.6316  DVD 0.4839  Music 0.7415  Video 0.4992
+  P-C-C-P reaches the product: 0.4953   does not: 0.6855
+  full-ranking top 10 of 5000 test users: mean training degree 6.0 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 11191
+
+m2v_amazon_lp_manual_8_s1.pt: Hit@10 0.6186
+  by product group: Book 0.6199  DVD 0.4613  Music 0.7247  Video 0.4903
+  P-C-C-P reaches the product: 0.4764   does not: 0.6725
+  full-ranking top 10 of 5000 test users: mean training degree 5.3 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 9679
+
+m2v_amazon_lp_rand4_d1_s1.pt: Hit@10 0.5534
+  by product group: Book 0.5608  DVD 0.4259  Music 0.6293  Video 0.4564
+  P-C-C-P reaches the product: 0.4420   does not: 0.5956
+  full-ranking top 10 of 5000 test users: mean training degree 6.0 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 10928
+
+m2v_amazon_lp_rand4_d2_s1.pt: Hit@10 0.5828
+  by product group: Book 0.5956  DVD 0.4035  Music 0.6961  Video 0.4184
+  P-C-C-P reaches the product: 0.4184   does not: 0.6451
+  full-ranking top 10 of 5000 test users: mean training degree 5.3 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 5902
+
+m2v_amazon_lp_rand4_d3_s1.pt: Hit@10 0.6074
+  by product group: Book 0.6057  DVD 0.4640  Music 0.7095  Video 0.4850
+  P-C-C-P reaches the product: 0.4760   does not: 0.6573
+  full-ranking top 10 of 5000 test users: mean training degree 6.1 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 12714
+
+m2v_amazon_lp_rand4_d4_s1.pt: Hit@10 0.6313
+  by product group: Book 0.6350  DVD 0.4714  Music 0.7435  Video 0.4796
+  P-C-C-P reaches the product: 0.4794   does not: 0.6889
+  full-ranking top 10 of 5000 test users: mean training degree 5.5 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 10377
+
+m2v_amazon_lp_rand4_d5_s1.pt: Hit@10 0.5479
+  by product group: Book 0.5582  DVD 0.4300  Music 0.6130  Video 0.4613
+  P-C-C-P reaches the product: 0.4458   does not: 0.5866
+  full-ranking top 10 of 5000 test users: mean training degree 5.8 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 8746
+
+m2v_amazon_lp_rand6_d1_s1.pt: Hit@10 0.5828
+  by product group: Book 0.6009  DVD 0.4193  Music 0.6743  Video 0.4449
+  P-C-C-P reaches the product: 0.4352   does not: 0.6387
+  full-ranking top 10 of 5000 test users: mean training degree 4.8 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 7370
+
+m2v_amazon_lp_rand6_d2_s1.pt: Hit@10 0.6219
+  by product group: Book 0.6267  DVD 0.4731  Music 0.7181  Video 0.5004
+  P-C-C-P reaches the product: 0.4886   does not: 0.6725
+  full-ranking top 10 of 5000 test users: mean training degree 5.6 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 10051
+
+m2v_amazon_lp_rand6_d3_s1.pt: Hit@10 0.6228
+  by product group: Book 0.6218  DVD 0.4831  Music 0.7212  Video 0.5043
+  P-C-C-P reaches the product: 0.4956   does not: 0.6710
+  full-ranking top 10 of 5000 test users: mean training degree 5.5 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 10497
+
+m2v_amazon_lp_rand6_d4_s1.pt: Hit@10 0.6316
+  by product group: Book 0.6270  DVD 0.4895  Music 0.7378  Video 0.5051
+  P-C-C-P reaches the product: 0.4995   does not: 0.6816
+  full-ranking top 10 of 5000 test users: mean training degree 7.3 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 15614
+
+m2v_amazon_lp_rand6_d5_s1.pt: Hit@10 0.6070
+  by product group: Book 0.6124  DVD 0.4637  Music 0.6965  Video 0.4958
+  P-C-C-P reaches the product: 0.4819   does not: 0.6544
+  full-ranking top 10 of 5000 test users: mean training degree 5.2 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 9101
+
+m2v_amazon_lp_v3_f4_a1_s1.pt: Hit@10 0.6046
+  by product group: Book 0.6097  DVD 0.4271  Music 0.7226  Video 0.4515
+  P-C-C-P reaches the product: 0.4430   does not: 0.6658
+  full-ranking top 10 of 5000 test users: mean training degree 5.6 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 11521
+
+m2v_amazon_lp_v3_f4_a2_s1.pt: Hit@10 0.6075
+  by product group: Book 0.6101  DVD 0.4371  Music 0.7252  Video 0.4558
+  P-C-C-P reaches the product: 0.4508   does not: 0.6670
+  full-ranking top 10 of 5000 test users: mean training degree 5.6 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 12095
+
+m2v_amazon_lp_v3_f4_c_s1.pt: Hit@10 0.6265
+  by product group: Book 0.6285  DVD 0.4649  Music 0.7363  Video 0.4898
+  P-C-C-P reaches the product: 0.4812   does not: 0.6816
+  full-ranking top 10 of 5000 test users: mean training degree 6.2 (all products 13.4), from the top 1% most-bought 0.1%, distinct products 12813
+
+m2v_amazon_lp_v3_f6_a1_s1.pt: Hit@10 0.5881
+  by product group: Book 0.5901  DVD 0.4226  Music 0.7036  Video 0.4391
+  P-C-C-P reaches the product: 0.4338   does not: 0.6466
+  full-ranking top 10 of 5000 test users: mean training degree 5.9 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 9952
+
+m2v_amazon_lp_v3_f6_a2_s1.pt: Hit@10 0.5916
+  by product group: Book 0.5968  DVD 0.4250  Music 0.7064  Video 0.4346
+  P-C-C-P reaches the product: 0.4347   does not: 0.6511
+  full-ranking top 10 of 5000 test users: mean training degree 5.8 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 9616
+
+m2v_amazon_lp_v3_f6_c_s1.pt: Hit@10 0.5983
+  by product group: Book 0.6026  DVD 0.4362  Music 0.7105  Video 0.4469
+  P-C-C-P reaches the product: 0.4467   does not: 0.6558
+  full-ranking top 10 of 5000 test users: mean training degree 5.9 (all products 13.4), from the top 1% most-bought 0.0%, distinct products 9949
+
+popularity_s1.pt: Hit@10 0.4233
+  by product group: Book 0.3359  DVD 0.6184  Music 0.4126  Video 0.5324
+  P-C-C-P reaches the product: 0.5877   does not: 0.3610
+  full-ranking top 10 of 5000 test users: mean training degree 550.1 (all products 13.4), from the top 1% most-bought 100.0%, distinct products 19
+
