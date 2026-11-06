@@ -60,6 +60,38 @@ def test_sets_exist_in_arch():
     assert sorted(env['LMSPS'].split()) == sorted(k for k in archs if k.startswith('amazon_lp_v3_'))
 
 
+
+def test_recommend_bats():
+    """recommend_6path.bat / recommend_4path.bat: every label they call exists, recommend.py has
+    every flag they pass, and each result they name is a set of the right size in arch.py (or GAT
+    and popularity)."""
+    src = open(os.path.join(REPO, 'recommend.py'), encoding='utf-8').read()
+    for name, size in (('recommend_6path.bat', 6), ('recommend_4path.bat', 4)):
+        bat = open(os.path.join(REPO, name), encoding='utf-8').read()
+        defined = set(re.findall(r'^:(\w+)', bat, flags=re.M))
+        used = set(re.findall(r'call :(\w+)', bat)) | set(re.findall(r'goto (\w+)', bat))
+        assert used <= defined, (name, used - defined)
+        flags = {f for line in bat.splitlines() if 'recommend.py --' in line
+                 for f in re.findall(r'(?<!\S)(--[a-z][a-z0-9-]*)', line)}
+        assert flags and all(f"'{f}'" in src for f in flags), (name, flags)
+        files = re.search(r'^set FILES=(.*)$', bat, flags=re.M).group(1).split()
+        han = [f for f in files if f.startswith('han_')]
+        assert len(han) == 3 and set(files) - set(han) == {'gat_union_s1', 'popularity_s1'}, files
+        for f in han:
+            key = f[len('han_'):].rsplit('_s', 1)[0]
+            assert key in archs and len(archs[key][0]) == size, (name, f)
+
+
+
+def test_recommend_api_bat():
+    """recommend_api.bat passes only flags recommend_api.py defines."""
+    bat = open(os.path.join(REPO, 'recommend_api.bat'), encoding='utf-8').read()
+    src = open(os.path.join(REPO, 'recommend_api.py'), encoding='utf-8').read()
+    flags = {f for line in bat.splitlines() if 'recommend_api.py --' in line
+             for f in re.findall(r'(?<!\S)(--[a-z][a-z0-9-]*)', line)}
+    assert flags and all(f"'{f}'" in src for f in flags), flags
+
+
 if __name__ == '__main__':
     for name, fn in list(globals().items()):
         if name.startswith('test_'):

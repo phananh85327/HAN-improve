@@ -131,6 +131,96 @@ Settings worth knowing:
   clean OOM instead of Windows paging GPU memory to system RAM or the driver crashing.
 - `python -m pytest tests` runs the repo's tests (about a minute on a CPU).
 
+## Example recommendations
+
+`recommend_6path.bat <customer id> [ASIN] [ASIN]` runs `recommend.py` on one representative result
+of each kind of path set, plus GAT and popularity, with the same queries. It writes each model's
+top 10 for the user, and for each ASIN its 10 most similar products, to
+`output/AMAZON/v3_check/recommend_6path_<customer id>.txt`. `recommend_4path.bat` does the same
+for the 4-path results.
+
+| Kind | 6 paths (`recommend_6path.bat`, the main pick) | 4 paths (`recommend_4path.bat`) | Why this result |
+|---|---|---|---|
+| Automatic (LMSPS) | `han_amazon_lp_v3_f6_a1_s1` | `han_amazon_lp_v3_f4_a1_s1` | The pre-registered main LMSPS set of that size |
+| Manual | `han_amazon_lp_manual_6_s1` | `han_amazon_lp_manual_5_s1` | Its main-comparison partner (M6, M5) |
+| Random | `han_amazon_lp_rand6_d3_s1` | `han_amazon_lp_rand4_d4_s1` | The median of the five draws of that size by validation BPR (0.2708, 0.2827): a typical draw, not the luckiest. The best by validation would be `rand6_d2` and `rand4_d3` |
+| GAT | `gat_union_s1` | the same | The best model; no meta-paths |
+| Popularity | `popularity_s1` | the same | The floor. User query only: its product embedding is a single number, so "similar products" means nothing for it |
+
+- **Seed 1 everywhere:** every set has a seed-1 run; seeds 2-3 exist only for the main comparison.
+- **6 paths are the main pick:** the 6-path sets did better than the 4-path ones in every family
+  (`review/h8_results.md`).
+- **Choosing the queries:** a customer id from the `ID` column of `filtered_users.csv` (or a user
+  index, 0-53568). Each list's header says how many products the user reviewed; users with about
+  6-20 make the clearest lists. For the product queries, one book and one DVD (the `Group` column of
+  `filtered_products.csv`): the LMSPS sets' category paths reach nothing for most books but work
+  for DVDs.
+- **What the lists show:** `--exclude-seen` hides every product the user reviewed, held-out test
+  purchases included. So the lists show what each model would recommend next, not whether it found
+  what the user bought; the measured version of that is `eval_emb.py --full-ranking`.
+- Both files read the filtered CSVs from `..\LMSPS\data\AMAZON_filtered`; set `CSV` to another
+  folder before calling them if yours are elsewhere.
+
+## Recommendation API
+
+`recommend_api.py` answers the same queries as `recommend.py` over HTTP, as JSON, so a front end
+can call it. It needs nothing beyond the repo's own stack (Python's standard library, numpy,
+torch).
+
+**Running it**
+1. **What it needs:** the results in `output\AMAZON\v3` (from `run_all.bat`), the rebuilt
+   `data\AMAZON`, and the filtered CSVs (`filtered_users.csv`, `filtered_products.csv`). The
+   launcher looks for the CSVs in `..\LMSPS\data\AMAZON_filtered`; if yours are elsewhere, run
+   `set CSV=<folder>` first.
+2. **Start it** from the repo root: `recommend_api.bat` (port 8000), or `recommend_api.bat 8001`
+   for another port. It serves the representative results above, both sizes plus GAT and
+   popularity, and prints each model it loaded (a result that is not there is skipped with a
+   message), then `Serving on http://127.0.0.1:8000/api/`. Keep the window open; Ctrl+C stops it.
+3. **Check it** in a browser: `http://127.0.0.1:8000/api/health`, then
+   `http://127.0.0.1:8000/api/models`. Or `curl http://127.0.0.1:8000/api/models` (curl comes
+   with Windows 10 and 11).
+4. **Try a query:** `http://127.0.0.1:8000/api/users?limit=5` lists a few users; take an `id` and
+   open `http://127.0.0.1:8000/api/users/<id>/recommendations?models=han_amazon_lp_manual_6_s1,gat_union_s1&k=10`.
+5. **From a front end:**
+
+       const res = await fetch(`http://127.0.0.1:8000/api/users/${encodeURIComponent(customerId)}/recommendations?models=han_amazon_lp_manual_6_s1&k=10`);
+       const data = await res.json();   // data.results[0].items: [{rank, asin, title, group, score}, ...]
+
+6. **Other results:** in `lmsps_env`, `python recommend_api.py --emb "output/AMAZON/v3/han_*_s1.pt"
+   --users-csv <dir>\filtered_users.csv --products-csv <dir>\filtered_products.csv --port 8000`
+   serves any files or globs instead.
+
+If it stops at once: "filtered_users.csv is not in ..." means `CSV` points at the wrong folder,
+and an error that the port is in use ("Only one usage of each socket address" on Windows)
+means another program has it: pick another port. To
+reach it from another device, run `recommend_api.py` with `--host 0.0.0.0` and allow Python
+through the Windows firewall.
+
+| Endpoint (GET) | Answer |
+|---|---|
+| `/api/health` | status, the number of models, products and users |
+| `/api/models` | each model: `name` (its file name without `.pt`), `model`, `kind` (automatic (LMSPS), manual, random, none), `paths`, `seed`, test Hit@10 and NDCG@10, validation BPR |
+| `/api/users?min_reviewed=6&max_reviewed=20&limit=20&seed=0` | a sample of users with that many reviewed products: their customer id, index and count |
+| `/api/users/<customer id>` | the products the user reviewed |
+| `/api/users/<customer id>/recommendations?models=<name>,<name>&k=10&exclude_seen=true` | each model's top `k` for the user (dot product, as `recommend.py`) |
+| `/api/products?q=<words>&limit=20` | products whose ASIN or title contains every word |
+| `/api/products/<ASIN>` | one product and how many users reviewed it |
+| `/api/products/<ASIN>/similar?models=<name>,<name>&k=10` | each model's `k` most similar products (cosine); popularity answers 400, since its product embedding is a single number |
+
+- **A product** in an answer is `{"asin", "title", "group"}`; a recommendation adds `rank` and
+  `score`. With several `models`, `results` holds one list per model, in the order asked; without
+  `models`, the first served model answers.
+- **Errors** are `{"error": "..."}` with status 400 (a bad parameter, `k` outside 1-100) or 404
+  (an unknown user, product, model or path).
+- **`exclude_seen`** (default true) hides every product the user reviewed, held-out test purchases
+  included, as `recommend.py --exclude-seen` does.
+- **Access:** it listens on 127.0.0.1, this machine only; `--host 0.0.0.0` opens it to the local
+  network. Browsers on any origin may call it (`--cors` narrows that), so a front end's dev
+  server on another port works as is.
+- **Memory:** each result is memory-mapped when the server starts (a HAN result is about 200 MB)
+  and the cosine table for "similar products" is built on the first such query. On Windows, stop
+  the server before overwriting a result it serves.
+
 ## Metrics
 
 Each trainer (and eval_emb.py) reports:
@@ -222,6 +312,8 @@ review is in the local notes `chat/2026-10-16_han-paper-fidelity-review.md`).
 | review/ | the HAN repo review: parts H1-H8, the wrap-up before the runs, the full re-check after them (`recheck_full_repo.md`), and the scripts behind them (`review/evidence/`) |
 | run_all.bat | the complete experiment flow by stage (see "Run flow") |
 | recommend.py | ASIN -> similar products; user -> top-k products |
+| recommend_6path.bat, recommend_4path.bat | `recommend.py` on the representative results of each kind of path set (see "Example recommendations") |
+| recommend_api.py, recommend_api.bat | the same queries as an HTTP JSON API for a front end (see "Recommendation API") |
 | METAPATH_CONTRACT.md | what a meta-path discovery repo must output for this repo to accept it |
 
 Saved embedding blobs (`*_emb.pt`, `<model>_<arch>_s<seed>.pt`) contain P_emb/U_emb plus
