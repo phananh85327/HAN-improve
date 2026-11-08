@@ -63,9 +63,11 @@ def test_sets_exist_in_arch():
 
 def test_recommend_bats():
     """recommend_6path.bat / recommend_4path.bat: every label they call exists, recommend.py has
-    every flag they pass, and each result they name is a set of the right size in arch.py (or GAT
-    and popularity)."""
+    every flag they pass, and they name one HAN and one metapath2vec result of each kind of path
+    set, each a set of the right size in arch.py (the same automatic and manual sets for both
+    models), plus GAT. recommend_api.py serves exactly these results by default."""
     src = open(os.path.join(REPO, 'recommend.py'), encoding='utf-8').read()
+    named = set()
     for name, size in (('recommend_6path.bat', 6), ('recommend_4path.bat', 4)):
         bat = open(os.path.join(REPO, name), encoding='utf-8').read()
         defined = set(re.findall(r'^:(\w+)', bat, flags=re.M))
@@ -75,11 +77,25 @@ def test_recommend_bats():
                  for f in re.findall(r'(?<!\S)(--[a-z][a-z0-9-]*)', line)}
         assert flags and all(f"'{f}'" in src for f in flags), (name, flags)
         files = re.search(r'^set FILES=(.*)$', bat, flags=re.M).group(1).split()
-        han = [f for f in files if f.startswith('han_')]
-        assert len(han) == 3 and set(files) - set(han) == {'gat_union_s1', 'popularity_s1'}, files
-        for f in han:
-            key = f[len('han_'):].rsplit('_s', 1)[0]
-            assert key in archs and len(archs[key][0]) == size, (name, f)
+        named |= set(files)
+        assert len(files) == len(set(files)) == 7 and 'gat_union_s1' in files, (name, files)
+        kinds = {'han': {}, 'm2v': {}}
+        for f in files:
+            if f == 'gat_union_s1':
+                continue
+            model, key = f.split('_', 1)
+            key = key.rsplit('_s', 1)[0]
+            assert model in kinds and key in archs and len(archs[key][0]) == size, (name, f)
+            kind = ('automatic' if '_v3_' in key else 'manual' if '_manual_' in key
+                    else 'random' if '_rand' in key else f)
+            kinds[model][kind] = key
+        for model, by_kind in kinds.items():
+            assert sorted(by_kind) == ['automatic', 'manual', 'random'], (name, model, by_kind)
+        for kind in ('automatic', 'manual'):
+            assert kinds['han'][kind] == kinds['m2v'][kind], (name, kind, kinds)
+    api = open(os.path.join(REPO, 'recommend_api.py'), encoding='utf-8').read()
+    served = re.search(r'^DEFAULT_EMB = .*?\)\]$', api, flags=re.M | re.S).group(0)
+    assert sorted(re.findall(r"'(\w+_s\d+)'", served)) == sorted(named), served
 
 
 

@@ -134,22 +134,30 @@ Settings worth knowing:
 ## Example recommendations
 
 `recommend_6path.bat <customer id> [ASIN] [ASIN]` runs `recommend.py` on one representative result
-of each kind of path set, plus GAT and popularity, with the same queries. It writes each model's
-top 10 for the user, and for each ASIN its 10 most similar products, to
+of each kind of path set, for HAN and for metapath2vec, plus GAT, with the same queries. It writes
+each model's top 10 for the user, and for each ASIN its 10 most similar products, to
 `output/AMAZON/v3_check/recommend_6path_<customer id>.txt`. `recommend_4path.bat` does the same
 for the 4-path results.
 
 | Kind | 6 paths (`recommend_6path.bat`, the main pick) | 4 paths (`recommend_4path.bat`) | Why this result |
 |---|---|---|---|
-| Automatic (LMSPS) | `han_amazon_lp_v3_f6_a1_s1` | `han_amazon_lp_v3_f4_a1_s1` | The pre-registered main LMSPS set of that size |
-| Manual | `han_amazon_lp_manual_6_s1` | `han_amazon_lp_manual_5_s1` | Its main-comparison partner (M6, M5) |
-| Random | `han_amazon_lp_rand6_d3_s1` | `han_amazon_lp_rand4_d4_s1` | The median of the five draws of that size by validation BPR (0.2708, 0.2827): a typical draw, not the luckiest. The best by validation would be `rand6_d2` and `rand4_d3` |
+| Automatic (LMSPS) | `han_amazon_lp_v3_f6_a1_s1`, `m2v_amazon_lp_v3_f6_a1_s1` | `han_amazon_lp_v3_f4_a1_s1`, `m2v_amazon_lp_v3_f4_a1_s1` | The pre-registered main LMSPS set of that size; the same set for both models |
+| Manual | `han_amazon_lp_manual_6_s1`, `m2v_amazon_lp_manual_6_s1` | `han_amazon_lp_manual_5_s1`, `m2v_amazon_lp_manual_5_s1` | Its main-comparison partner (M6, M5) |
+| Random, HAN | `han_amazon_lp_rand6_d3_s1` | `han_amazon_lp_rand4_d4_s1` | The median of the five draws of that size by HAN's validation BPR (0.2708, 0.2827): a typical draw, not the luckiest. The best by validation would be `rand6_d2` and `rand4_d3` |
+| Random, metapath2vec | `m2v_amazon_lp_rand6_d2_s1` | `m2v_amazon_lp_rand4_d2_s1` | The same rule on metapath2vec's own validation BPR (0.3374, 0.3733); their test Hit@10 (0.622, 0.583) is close to the mean of the five draws (0.613, 0.585). HAN's picks are its second-best and best draws, so they would not be typical for it. The best by validation would be `rand6_d4` and `rand4_d4` |
 | GAT | `gat_union_s1` | the same | The best model; no meta-paths |
-| Popularity | `popularity_s1` | the same | The floor. User query only: its product embedding is a single number, so "similar products" means nothing for it |
 
-- **Seed 1 everywhere:** every set has a seed-1 run; seeds 2-3 exist only for the main comparison.
-- **6 paths are the main pick:** the 6-path sets did better than the 4-path ones in every family
-  (`review/h8_results.md`).
+- **Seed 1 everywhere:** every set has a seed-1 run for both models; seeds 2-3 exist only for the
+  main comparison.
+- **6 paths are the main pick for HAN:** its 6-path sets did better than the 4-path ones in every
+  family (`review/h8_results.md`). For metapath2vec neither size wins: with 6 paths the random
+  draws do better, the manual sets the same and the searched sets worse.
+- **HAN against metapath2vec:** compare them on the automatic and manual rows, which hold the same
+  set for both; the random rows are different draws.
+- **Popularity is left out:** it gives every user the same bestsellers (19 products in all across
+  the full-ranking top 10s of 5,000 test users, `review/evidence/by_group.txt`). For its list, pass
+  `--emb output\AMAZON\v3\popularity_s1.pt` to `recommend.py`, or serve it with
+  `recommend_api.py --emb`.
 - **Choosing the queries:** a customer id from the `ID` column of `filtered_users.csv` (or a user
   index, 0-53568). Each list's header says how many products the user reviewed; users with about
   6-20 make the clearest lists. For the product queries, one book and one DVD (the `Group` column of
@@ -173,8 +181,8 @@ torch).
    launcher looks for the CSVs in `..\LMSPS\data\AMAZON_filtered`; if yours are elsewhere, run
    `set CSV=<folder>` first.
 2. **Start it** from the repo root: `recommend_api.bat` (port 8000), or `recommend_api.bat 8001`
-   for another port. It serves the representative results above, both sizes plus GAT and
-   popularity, and prints each model it loaded (a result that is not there is skipped with a
+   for another port. It serves the 13 representative results above (HAN and metapath2vec at both
+   sizes, plus GAT) and prints each model it loaded (a result that is not there is skipped with a
    message), then `Serving on http://127.0.0.1:8000/api/`. Keep the window open; Ctrl+C stops it.
 3. **Check it** in a browser: `http://127.0.0.1:8000/api/health`, then
    `http://127.0.0.1:8000/api/models`. Or `curl http://127.0.0.1:8000/api/models` (curl comes
@@ -205,7 +213,7 @@ through the Windows firewall.
 | `/api/users/<customer id>/recommendations?models=<name>,<name>&k=10&exclude_seen=true` | each model's top `k` for the user (dot product, as `recommend.py`) |
 | `/api/products?q=<words>&limit=20` | products whose ASIN or title contains every word |
 | `/api/products/<ASIN>` | one product and how many users reviewed it |
-| `/api/products/<ASIN>/similar?models=<name>,<name>&k=10` | each model's `k` most similar products (cosine); popularity answers 400, since its product embedding is a single number |
+| `/api/products/<ASIN>/similar?models=<name>,<name>&k=10` | each model's `k` most similar products (cosine); a popularity result (served with `--emb`) answers 400, since its product embedding is a single number |
 
 - **A product** in an answer is `{"asin", "title", "group"}`; a recommendation adds `rank` and
   `score`. With several `models`, `results` holds one list per model, in the order asked; without

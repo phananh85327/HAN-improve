@@ -90,9 +90,10 @@
   `data_leafcat/AMAZON` and run scripts with `--root data_leafcat`.
 - `arch.py`: the Fleet v2 keys (`amazon_lp_f4_*`, `_f6_*`, aliases `_f4_c` / `_f6_c`) were
   searched on the data before the rebuild and are kept for the record only.
-- `recommend_6path.bat` / `recommend_4path.bat` run `recommend.py` on the representative
-  result of each kind of path set, plus GAT and popularity (README "Example recommendations"
-  gives the reasons for the choice).
+- `recommend_6path.bat` / `recommend_4path.bat` run `recommend.py` on the representative HAN
+  and metapath2vec result of each kind of path set, plus GAT; popularity is left out (README
+  "Example recommendations" gives the reasons; each model's random draw is its own median by
+  validation BPR).
 - `recommend_api.py` (started by `recommend_api.bat`) serves the same queries as an HTTP JSON
   API for a front end, standard library only (README "Recommendation API").
 - `train_han.py --paper-config` applies the paper's Sec. 5.3 hyperparameters;

@@ -11,9 +11,9 @@ nothing new to install.
     python recommend_api.py --users-csv <dir>/filtered_users.csv --products-csv <dir>/filtered_products.csv
     python recommend_api.py --emb "output/AMAZON/v3/han_*_s1.pt" --port 8000
 
-Without --emb it serves the representative results of README "Example recommendations" (both
-sizes, plus GAT and popularity). It listens on 127.0.0.1, this machine only, unless --host says
-otherwise, and allows calls from any origin (--cors) so a front end on another port can use it.
+Without --emb it serves the representative results of README "Example recommendations" (HAN and
+metapath2vec at both sizes, plus GAT). It listens on 127.0.0.1, this machine only, unless --host
+says otherwise, and allows calls from any origin (--cors) so a front end on another port can use it.
 
 Endpoints (GET; JSON; an error is {"error": "..."} with status 400 or 404):
   /api/health                                    status, the number of models
@@ -49,11 +49,14 @@ import torch
 from recommend import (CATEGORY_TYPE, PRODUCT_TYPE, USER_TYPE, load_node_maps, load_seen,
                        load_user_ids, topk_products)
 
-# the representative results (README "Example recommendations"): 6 paths, 4 paths, references
+# the representative results (README "Example recommendations"): HAN and metapath2vec at 6 paths,
+# then at 4 paths, then GAT. Each model's random draw is the median by its own validation BPR.
 DEFAULT_EMB = [f'output/AMAZON/v3/{name}.pt' for name in (
     'han_amazon_lp_v3_f6_a1_s1', 'han_amazon_lp_manual_6_s1', 'han_amazon_lp_rand6_d3_s1',
+    'm2v_amazon_lp_v3_f6_a1_s1', 'm2v_amazon_lp_manual_6_s1', 'm2v_amazon_lp_rand6_d2_s1',
     'han_amazon_lp_v3_f4_a1_s1', 'han_amazon_lp_manual_5_s1', 'han_amazon_lp_rand4_d4_s1',
-    'gat_union_s1', 'popularity_s1')]
+    'm2v_amazon_lp_v3_f4_a1_s1', 'm2v_amazon_lp_manual_5_s1', 'm2v_amazon_lp_rand4_d2_s1',
+    'gat_union_s1')]
 MAX_K = 100
 
 
