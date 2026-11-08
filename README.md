@@ -158,6 +158,8 @@ for the 4-path results.
   the full-ranking top 10s of 5,000 test users, `review/evidence/by_group.txt`). For its list, pass
   `--emb output\AMAZON\v3\popularity_s1.pt` to `recommend.py`, or serve it with
   `recommend_api.py --emb`.
+- **The full reasoning, with the numbers:** `review/example_recommendations.md`
+  (`review/evidence/example_recommendations.py` prints them).
 - **Choosing the queries:** a customer id from the `ID` column of `filtered_users.csv` (or a user
   index, 0-53568). Each list's header says how many products the user reviewed; users with about
   6-20 make the clearest lists. For the product queries, one book and one DVD (the `Group` column of
