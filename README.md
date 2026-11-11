@@ -217,9 +217,13 @@ through the Windows firewall.
 | `/api/products/<ASIN>` | one product and how many users reviewed it |
 | `/api/products/<ASIN>/similar?models=<name>,<name>&k=10` | each model's `k` most similar products (cosine); a popularity result (served with `--emb`) answers 400, since its product embedding is a single number |
 
-- **A product** in an answer is `{"asin", "title", "group"}`; a recommendation adds `rank` and
-  `score`. With several `models`, `results` holds one list per model, in the order asked; without
-  `models`, the first served model answers.
+- **A product** in an answer is `{"asin", "title", "group", "sales_rank", "avg_rating",
+  "reviewers"}`; a recommendation adds `rank` and `score`. `sales_rank` (lower sells better) and
+  `avg_rating` (1-5) are Amazon's, from `filtered_products.csv`, and `null` when the file is not
+  given or the value is unknown (3 products have no sales rank). `reviewers` is the number of
+  customers in the data who reviewed the product, held-out test purchases included. With several
+  `models`, `results` holds one list per model, in the order asked; without `models`, the first
+  served model answers.
 - **Errors** are `{"error": "..."}` with status 400 (a bad parameter, `k` outside 1-100) or 404
   (an unknown user, product, model or path).
 - **`exclude_seen`** (default true) hides every product the user reviewed, held-out test purchases

@@ -30,6 +30,11 @@ A model name is its file name without .pt (see /api/models); without models= the
 used. <customer id> may also be a user index, as in recommend.py. exclude_seen (default true)
 hides every product the user reviewed, held-out test purchases included, so a list shows what the
 model would recommend next, not whether it found what the user bought.
+
+Every product in an answer is {asin, title, group, sales_rank, avg_rating, reviewers}: the title,
+product group, Amazon sales rank (lower sells better) and average customer rating come from
+--products-csv (null when it is not given or the value is unknown); reviewers is the number of
+customers in the data who reviewed the product, held-out test purchases included.
 """
 
 import argparse
@@ -75,15 +80,29 @@ def load_blob(path):
         return torch.load(path, map_location='cpu')
 
 
+def positive(value, cast):
+    """A number from a CSV cell, or None when it is empty, not a number, or not above 0 (the data's
+    way of saying unknown: 3 products have sales rank 0)."""
+    try:
+        number = cast(float(value))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
 def load_products(products_csv):
-    """ASIN -> (title, group) from filtered_products.csv ({} without the file)."""
+    """ASIN -> {title, group, sales_rank, avg_rating} from filtered_products.csv ({} without the
+    file). Sales rank and rating are Amazon's, as in the 2006 metadata."""
     products = {}
     if products_csv:
         with open(products_csv, 'r', encoding='utf-8-sig', newline='') as fh:
             for row in csv.DictReader(fh):
                 asin = (row.get('ASIN') or '').strip()
                 if asin:
-                    products[asin] = ((row.get('Title') or '').strip(), (row.get('Group') or '').strip())
+                    products[asin] = {'title': (row.get('Title') or '').strip(),
+                                      'group': (row.get('Group') or '').strip(),
+                                      'sales_rank': positive(row.get('SalesRank'), int),
+                                      'avg_rating': positive(row.get('AvgRating'), float)}
     return products
 
 
@@ -114,8 +133,10 @@ class Catalog:
 
     def product(self, pid):
         asin = self.pid_to_asin[pid]
-        title, group = self.products.get(asin, ('', ''))
-        return {'asin': asin, 'title': title, 'group': group}
+        details = self.products.get(asin, {})
+        return {'asin': asin, 'title': details.get('title', ''), 'group': details.get('group', ''),
+                'sales_rank': details.get('sales_rank'), 'avg_rating': details.get('avg_rating'),
+                'reviewers': self.reviewers.get(pid, 0)}
 
     def user_index(self, key):
         """A customer id, or a user index as recommend.py accepts it."""
@@ -289,7 +310,7 @@ class Api:
         limit = self.number(q, 'limit', 20, 1, 1000)
         hits = []
         for pid, asin in enumerate(self.catalog.pid_to_asin):
-            text = (asin + ' ' + self.catalog.products.get(asin, ('', ''))[0]).lower()
+            text = (asin + ' ' + self.catalog.products.get(asin, {}).get('title', '')).lower()
             if all(w in text for w in words):
                 hits.append(pid)
                 if len(hits) == limit:

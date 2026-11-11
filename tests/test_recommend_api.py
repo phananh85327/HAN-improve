@@ -30,8 +30,9 @@ def build(tmp):
     with open(os.path.join(tmp, 'products.csv'), 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow(['ID', 'ASIN', 'Discontinued', 'Title', 'Group', 'SalesRank', 'AvgRating'])
-        for i in range(N_P):
-            w.writerow([i, f'n{i}', 0, f'Product number {i}', GROUPS[i % 4], 0, 0])
+        for i in range(N_P):   # every 7th product has no sales rank (0, as in the data)
+            w.writerow([i, f'n{i}', 0, f'Product number {i}', GROUPS[i % 4], (i + 1) * 10 if i % 7 else 0,
+                        4.5 if i % 2 else 3])
     with open(os.path.join(tmp, 'users.csv'), 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow(['ID', 'Name'])
@@ -88,6 +89,17 @@ def test_endpoints():
 
         assert api.route('/api/products?q=number 12')['products'][0]['asin'] == 'n12'
         assert api.route('/api/products/n7')['reviewers'] == sum(7 in s for s in api.catalog.seen.values())
+
+        # every product in an answer carries its details; a 0 in the CSV means unknown
+        n7 = sum(7 in s for s in api.catalog.seen.values())
+        assert api.route('/api/products/n7')['product'] == {
+            'asin': 'n7', 'title': 'Product number 7', 'group': 'Video', 'sales_rank': None,
+            'avg_rating': 4.5, 'reviewers': n7}
+        assert api.route('/api/products/n12')['product']['sales_rank'] == 130
+        first = items[0]
+        assert set(first) == {'rank', 'asin', 'title', 'group', 'sales_rank', 'avg_rating', 'reviewers', 'score'}
+        assert first['reviewers'] == api.catalog.reviewers[int(first['asin'][1:])]
+        assert api.route('/api/users/C0001')['products'][0]['avg_rating'] in (3.0, 4.5)
         assert len(api.route('/api/users/C0001')['products']) == len(api.catalog.seen[1])
         sample = api.route('/api/users?min_reviewed=5&max_reviewed=6&limit=4')
         assert len(sample['users']) <= 4 and all(5 <= u['reviewed'] <= 6 for u in sample['users'])
