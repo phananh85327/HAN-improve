@@ -11,19 +11,23 @@ nothing new to install.
     python recommend_api.py --users-csv <dir>/filtered_users.csv --products-csv <dir>/filtered_products.csv
     python recommend_api.py --emb "output/AMAZON/v3/han_*_s1.pt" --port 8000
 
+The category descriptions come from filtered_categories.csv and filtered_category_paths.csv, read by
+default from the folder of --products-csv (--categories-csv and --category-paths-csv name others);
+without them every product's category is null. They are for display only: no model reads them.
+
 Without --emb it serves the representative results of README "Example recommendations" (HAN and
 metapath2vec at both sizes, plus GAT). It listens on 127.0.0.1, this machine only, unless --host
 says otherwise, and allows calls from any origin (--cors) so a front end on another port can use it.
 
 Endpoints (GET; JSON; an error is {"error": "..."} with status 400 or 404):
-  /api/health                                    status, the number of models
+  /api/health                                    status, the number of models, products with a category
   /api/models                                    the models: name, model, kind of path set, paths, test metrics
   /api/users?min_reviewed=6&max_reviewed=20&limit=20&seed=0
                                                  a sample of users with that many reviewed products
   /api/users/<customer id>                       the products the user reviewed
   /api/users/<customer id>/recommendations?models=<name>,<name>&k=10&exclude_seen=true
   /api/products?q=<words>&limit=20               products whose ASIN or title contains every word
-  /api/products/<ASIN>                           one product and its number of reviewers
+  /api/products/<ASIN>                           one product, with all its category paths
   /api/products/<ASIN>/similar?models=<name>,<name>&k=10
 
 A model name is its file name without .pt (see /api/models); without models= the first model is
@@ -31,20 +35,25 @@ used. <customer id> may also be a user index, as in recommend.py. exclude_seen (
 hides every product the user reviewed, held-out test purchases included, so a list shows what the
 model would recommend next, not whether it found what the user bought.
 
-Every product in an answer is {asin, title, group, sales_rank, avg_rating, reviewers}: the title,
-product group, Amazon sales rank (lower sells better) and average customer rating come from
---products-csv (null when it is not given or the value is unknown); reviewers is the number of
-customers in the data who reviewed the product, held-out test purchases included.
+Every product in an answer is {asin, title, group, sales_rank, avg_rating, reviewers, category}:
+the title, product group, Amazon sales rank (lower sells better) and average customer rating come
+from --products-csv (null when it is not given or the value is unknown); reviewers is the number of
+customers in the data who reviewed the product, held-out test purchases included; category is its
+first Amazon category path, a list of names from the root down (null when it has none or the
+category files are off). /api/products/<ASIN> also gives product.categories, every path in order.
 """
 
 import argparse
 import collections
 import csv
 import glob
+import itertools
 import json
 import os
 import random
 import threading
+import time
+from array import array
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -106,6 +115,66 @@ def load_products(products_csv):
     return products
 
 
+CATEGORIES_FILE = 'filtered_categories.csv'
+CATEGORY_PATHS_FILE = 'filtered_category_paths.csv'
+
+
+def category_files(products_csv, categories_csv='', category_paths_csv=''):
+    """The two category files: the ones given, else those next to --products-csv. Returns
+    (categories_csv, category_paths_csv, None), or (None, None, why categories are off)."""
+    folder = os.path.dirname(os.path.abspath(products_csv)) if products_csv else ''
+    files = [(given or (folder and os.path.join(folder, default)), flag)
+             for given, default, flag in ((categories_csv, CATEGORIES_FILE, '--categories-csv'),
+                                          (category_paths_csv, CATEGORY_PATHS_FILE, '--category-paths-csv'))]
+    for path, flag in files:
+        if not path:
+            return None, None, f'no {flag} or --products-csv'
+        if not os.path.isfile(path):
+            return None, None, f'no {path}'
+    return files[0][0], files[1][0], None
+
+
+def load_category_paths(categories_csv, category_paths_csv, keep):
+    """ASIN -> its Amazon category paths, each a tuple of names from the root down, for the ASINs in
+    `keep` (filtered_categories.csv: ID, Name; filtered_category_paths.csv: ASIN, No, Seq,
+    CategoryID, one row per level). A product's paths follow No and each path follows Seq. A level
+    without a name is dropped (the raw data lists some categories by number only), and so is a path
+    left with no names or with the same names as an earlier path. Display only: no model reads it."""
+    names, index = [''], {}                           # names[0] = '' for an id the file lacks
+    with open(categories_csv, 'r', encoding='utf-8-sig', newline='') as fh:
+        for row in csv.DictReader(fh):
+            index[(row.get('ID') or '').strip()] = len(names)
+            names.append((row.get('Name') or '').strip())
+    # one packed integer per row, (No * SEQS + Seq) * NAMES + name index, in an array per product:
+    # 8 bytes a row instead of a tuple of three objects, so reading the 2.3 million rows of the
+    # full data costs ~30 MB on top of the result (~45 MB) instead of ~170 MB, and sorting the
+    # integers sorts the rows by No, then Seq
+    SEQS, NAMES = 1000, len(names)
+    levels = collections.defaultdict(lambda: array('q'))
+    with open(category_paths_csv, 'r', encoding='utf-8-sig', newline='') as fh:
+        for row in csv.DictReader(fh):
+            asin = (row.get('ASIN') or '').strip()
+            if asin not in keep:
+                continue
+            try:
+                no, seq = int(row['No']), int(row['Seq'])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if 0 <= no and 0 <= seq < SEQS:
+                levels[asin].append((no * SEQS + seq) * NAMES + index.get((row.get('CategoryID') or '').strip(), 0))
+    paths = {}
+    for asin, packed in levels.items():
+        kept, seen = [], set()
+        for _, group in itertools.groupby(sorted(packed), key=lambda code: code // (SEQS * NAMES)):
+            path = tuple(names[code % NAMES] for code in group if names[code % NAMES])
+            if path and path not in seen:
+                seen.add(path)
+                kept.append(path)
+        if kept:
+            paths[asin] = tuple(kept)
+    return paths
+
+
 def set_kind(name, paths):
     """The kind of meta-path set a result was trained on, from its file name."""
     if not paths:
@@ -122,10 +191,14 @@ def set_kind(name, paths):
 class Catalog:
     """Products, users and who reviewed what: shared by every model."""
 
-    def __init__(self, root, dataset, products_csv, users_csv):
+    def __init__(self, root, dataset, products_csv, users_csv, categories_csv=None, category_paths_csv=None):
         self.asin_to_pid, self.pid_to_asin, counts = load_node_maps(root, dataset)
         self.num_users = counts[USER_TYPE]
         self.products = load_products(products_csv)
+        start = time.perf_counter()
+        self.paths = (load_category_paths(categories_csv, category_paths_csv, self.asin_to_pid)
+                      if categories_csv and category_paths_csv else {})
+        self.category_seconds = time.perf_counter() - start
         self.cid_to_uid = load_user_ids(users_csv) if users_csv else {}
         self.uid_to_cid = {uid: cid for cid, uid in self.cid_to_uid.items()}
         self.seen = load_seen(root, dataset, counts[PRODUCT_TYPE], counts[CATEGORY_TYPE])
@@ -134,9 +207,14 @@ class Catalog:
     def product(self, pid):
         asin = self.pid_to_asin[pid]
         details = self.products.get(asin, {})
+        paths = self.paths.get(asin)
         return {'asin': asin, 'title': details.get('title', ''), 'group': details.get('group', ''),
                 'sales_rank': details.get('sales_rank'), 'avg_rating': details.get('avg_rating'),
-                'reviewers': self.reviewers.get(pid, 0)}
+                'reviewers': self.reviewers.get(pid, 0), 'category': list(paths[0]) if paths else None}
+
+    def categories(self, pid):
+        """Every category path of a product, in order; [] when it has none."""
+        return [list(path) for path in self.paths.get(self.pid_to_asin[pid], ())]
 
     def user_index(self, key):
         """A customer id, or a user index as recommend.py accepts it."""
@@ -215,7 +293,7 @@ class Api:
         seg = seg[1:]
         if seg == ['health']:
             return {'status': 'ok', 'models': len(self.models.paths), 'products': len(self.catalog.pid_to_asin),
-                    'users': self.catalog.num_users}
+                    'users': self.catalog.num_users, 'categories': len(self.catalog.paths)}
         if seg == ['models']:
             return {'models': [self.models.get(name)['info'] for name in self.models.paths]}
         if seg == ['users']:
@@ -230,7 +308,8 @@ class Api:
             return self.search(q)
         if len(seg) == 2 and seg[0] == 'products':
             pid = self.product_index(seg[1])
-            return {'product': self.catalog.product(pid), 'reviewers': self.catalog.reviewers.get(pid, 0)}
+            return {'product': {**self.catalog.product(pid), 'categories': self.catalog.categories(pid)},
+                    'reviewers': self.catalog.reviewers.get(pid, 0)}
         if len(seg) == 3 and seg[0] == 'products' and seg[2] == 'similar':
             return self.similar(seg[1], q)
         raise ApiError(404, f'no endpoint {url.path}')
@@ -361,6 +440,10 @@ def main():
     ap.add_argument('--products-csv', type=str, default='',
                     help='filtered_products.csv, for titles and product groups')
     ap.add_argument('--users-csv', type=str, default='', help='filtered_users.csv, for customer ids')
+    ap.add_argument('--categories-csv', type=str, default='',
+                    help=f'{CATEGORIES_FILE}, the category names (default: next to --products-csv)')
+    ap.add_argument('--category-paths-csv', type=str, default='',
+                    help=f'{CATEGORY_PATHS_FILE}, the products\' category paths (default: next to --products-csv)')
     ap.add_argument('--host', type=str, default='127.0.0.1',
                     help='127.0.0.1 = this machine only; 0.0.0.0 = every network the machine is on')
     ap.add_argument('--port', type=int, default=8000)
@@ -376,10 +459,14 @@ def main():
         paths.extend(found)
     if not paths:
         raise SystemExit('no result to serve: pass --emb')
-    catalog = Catalog(args.root, args.dataset, args.products_csv, args.users_csv)
+    categories_csv, category_paths_csv, off = category_files(args.products_csv, args.categories_csv,
+                                                             args.category_paths_csv)
+    catalog = Catalog(args.root, args.dataset, args.products_csv, args.users_csv, categories_csv, category_paths_csv)
+    categories = (f'on ({len(catalog.paths)} products with a path, read in {catalog.category_seconds:.1f} s)'
+                  if categories_csv else f'off ({off})')
     print(f'{len(catalog.pid_to_asin)} products, {catalog.num_users} users; '
           f'titles {"on" if catalog.products else "off (no --products-csv)"}, '
-          f'customer ids {"on" if catalog.cid_to_uid else "off (no --users-csv)"}')
+          f'customer ids {"on" if catalog.cid_to_uid else "off (no --users-csv)"}, categories {categories}')
     api = Api(catalog, Models(paths, catalog))
     for name in api.models.paths:   # load each once now: a wrong file fails here, not on a request
         info = api.models.get(name)['info']

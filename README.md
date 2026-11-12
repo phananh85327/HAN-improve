@@ -179,13 +179,16 @@ torch).
 
 **Running it**
 1. **What it needs:** the results in `output\AMAZON\v3` (from `run_all.bat`), the rebuilt
-   `data\AMAZON`, and the filtered CSVs (`filtered_users.csv`, `filtered_products.csv`). The
-   launcher looks for the CSVs in `..\LMSPS\data\AMAZON_filtered`; if yours are elsewhere, run
-   `set CSV=<folder>` first.
+   `data\AMAZON`, and the filtered CSVs (`filtered_users.csv`, `filtered_products.csv`, and for the
+   category descriptions `filtered_categories.csv` and `filtered_category_paths.csv`, all four as
+   LMSPS's extraction writes them). The launcher looks for the CSVs in
+   `..\LMSPS\data\AMAZON_filtered`; if yours are elsewhere, run `set CSV=<folder>` first.
 2. **Start it** from the repo root: `recommend_api.bat` (port 8000), or `recommend_api.bat 8001`
    for another port. It serves the 13 representative results above (HAN and metapath2vec at both
-   sizes, plus GAT) and prints each model it loaded (a result that is not there is skipped with a
-   message), then `Serving on http://127.0.0.1:8000/api/`. Keep the window open; Ctrl+C stops it.
+   sizes, plus GAT). Its first line ends with `categories on (... products with a path, read in
+   ... s)`, or `categories off (...)` with the reason. It then prints each model it loaded (a result
+   that is not there is skipped with a message), then `Serving on http://127.0.0.1:8000/api/`.
+   Keep the window open; Ctrl+C stops it.
 3. **Check it** in a browser: `http://127.0.0.1:8000/api/health`, then
    `http://127.0.0.1:8000/api/models`. Or `curl http://127.0.0.1:8000/api/models` (curl comes
    with Windows 10 and 11).
@@ -194,7 +197,7 @@ torch).
 5. **From a front end:**
 
        const res = await fetch(`http://127.0.0.1:8000/api/users/${encodeURIComponent(customerId)}/recommendations?models=han_amazon_lp_manual_6_s1&k=10`);
-       const data = await res.json();   // data.results[0].items: [{rank, asin, title, group, score}, ...]
+       const data = await res.json();   // data.results[0].items: [{rank, asin, title, group, category, score, ...}, ...]
 
 6. **Other results:** in `lmsps_env`, `python recommend_api.py --emb "output/AMAZON/v3/han_*_s1.pt"
    --users-csv <dir>\filtered_users.csv --products-csv <dir>\filtered_products.csv --port 8000`
@@ -208,22 +211,30 @@ through the Windows firewall.
 
 | Endpoint (GET) | Answer |
 |---|---|
-| `/api/health` | status, the number of models, products and users |
+| `/api/health` | status, the number of models, products and users, and `categories`: how many products have a category path (0 when the category files are off) |
 | `/api/models` | each model: `name` (its file name without `.pt`), `model`, `kind` (automatic (LMSPS), manual, random, none), `paths`, `seed`, test Hit@10 and NDCG@10, validation BPR |
 | `/api/users?min_reviewed=6&max_reviewed=20&limit=20&seed=0` | a sample of users with that many reviewed products: their customer id, index and count |
 | `/api/users/<customer id>` | the products the user reviewed |
 | `/api/users/<customer id>/recommendations?models=<name>,<name>&k=10&exclude_seen=true` | each model's top `k` for the user (dot product, as `recommend.py`) |
 | `/api/products?q=<words>&limit=20` | products whose ASIN or title contains every word |
-| `/api/products/<ASIN>` | one product and how many users reviewed it |
+| `/api/products/<ASIN>` | one product and how many users reviewed it; the product also has `categories`, every category path in order (`[]` when it has none) |
 | `/api/products/<ASIN>/similar?models=<name>,<name>&k=10` | each model's `k` most similar products (cosine); a popularity result (served with `--emb`) answers 400, since its product embedding is a single number |
 
 - **A product** in an answer is `{"asin", "title", "group", "sales_rank", "avg_rating",
-  "reviewers"}`; a recommendation adds `rank` and `score`. `sales_rank` (lower sells better) and
-  `avg_rating` (1-5) are Amazon's, from `filtered_products.csv`, and `null` when the file is not
-  given or the value is unknown (3 products have no sales rank). `reviewers` is the number of
-  customers in the data who reviewed the product, held-out test purchases included. With several
-  `models`, `results` holds one list per model, in the order asked; without `models`, the first
-  served model answers.
+  "reviewers", "category"}`; a recommendation adds `rank` and `score`. `sales_rank` (lower sells
+  better) and `avg_rating` (1-5) are Amazon's, from `filtered_products.csv`, and `null` when the
+  file is not given or the value is unknown (3 products have no sales rank). `reviewers` is the
+  number of customers in the data who reviewed the product, held-out test purchases included.
+  `category` is the product's first Amazon category path, a list of names from the root down, for
+  example `["Books", "Subjects", "Computers & Internet", "Programming", "C & C++"]`, or `null`. With
+  several `models`, `results` holds one list per model, in the order asked; without `models`, the
+  first served model answers.
+- **Categories** come from `filtered_categories.csv` (names) and `filtered_category_paths.csv` (one
+  row per level of each path), read once at startup from the folder of `--products-csv`;
+  `--categories-csv` and `--category-paths-csv` name other files. Levels without a name (the raw
+  data lists some categories by number only) are dropped, and a path repeated under other category
+  ids is kept once. Without the files the API answers as before, with every `category` `null`. They
+  are for display only: no model reads them, and no list changes.
 - **Errors** are `{"error": "..."}` with status 400 (a bad parameter, `k` outside 1-100) or 404
   (an unknown user, product, model or path).
 - **`exclude_seen`** (default true) hides every product the user reviewed, held-out test purchases
@@ -232,8 +243,9 @@ through the Windows firewall.
   network. Browsers on any origin may call it (`--cors` narrows that), so a front end's dev
   server on another port works as is.
 - **Memory:** each result is memory-mapped when the server starts (a HAN result is about 200 MB)
-  and the cosine table for "similar products" is built on the first such query. On Windows, stop
-  the server before overwriting a result it serves.
+  and the cosine table for "similar products" is built on the first such query. The category
+  paths add about 5 seconds and 50 MB at startup (2.3 million rows, measured on the full data).
+  On Windows, stop the server before overwriting a result it serves.
 
 ## Metrics
 
